@@ -1,0 +1,70 @@
+display:
+  background:
+    path: /usr/share/thermalright-lcd-control/themes/backgrounds/y010.png
+    type: image
+  date:
+    color: '#FFFFFFFF'
+    enabled: false
+    font_size: 24
+    position:
+      x: 15
+      y: 3
+    text: ''
+  foreground:
+    alpha: 1.0
+    enabled: true
+    path: /usr/share/thermalright-lcd-control/themes/foregrounds/006b.png
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs:
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 24
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: cpu_temperature
+      position:
+        x: 54
+        y: 104
+      unit: °
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 24
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: gpu_temperature
+      position:
+        x: 253
+        y: 102
+      unit: °
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 24
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: cpu_frequency
+      position:
+        x: 89
+        y: 33
+      unit: MHZ
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 24
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: gpu_frequency
+      position:
+        x: 90
+        y: 171
+      unit: MHZ
+    enabled: true
+  time:
+    color: '#FFFFFFFF'
+    enabled: true
+    font_size: 24
+    position:
+      x: 153
+      y: 103
+    text: ''

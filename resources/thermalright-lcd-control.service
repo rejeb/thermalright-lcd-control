@@ -1,0 +1,17 @@
+[Unit]
+Description=Thermalright LCD Control Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/usr/lib/thermalright-lcd-control
+Environment=PYTHONPATH=/usr/lib/thermalright-lcd-control
+ExecStart=/opt/thermalright-lcd-control/venv/bin/python -m thermalright_lcd_control.service --config @config_file@
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

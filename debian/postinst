@@ -1,0 +1,61 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright © 2025 Rejeb Ben Rejeb
+
+set -e
+
+VENV_DIR="/opt/thermalright-lcd-control/venv"
+CONFIG_DIR="/etc/thermalright-lcd-control"
+APP_DIR="/usr/lib/thermalright-lcd-control"
+THEMES_DIR="/usr/share/thermalright-lcd-control"
+GUI_CONFIG_FILE="$CONFIG_DIR/gui_config.yaml"
+
+
+# Create and configure venv
+python3 -m venv "$VENV_DIR"
+"$VENV_DIR/bin/pip3" install --upgrade pip
+
+# Install dependencies from pyproject.toml
+cd "$APP_DIR"
+if command -v python3 >/dev/null 2>&1 && python3 -c "import tomllib" 2>/dev/null; then
+    # Python 3.11+ with tomllib
+    "$VENV_DIR/bin/pip3" install $(python3 -c "import tomllib; deps = tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']; print(' '.join(deps))")
+else
+    # Fallback for older versions
+    "$VENV_DIR/bin/pip3" install requests>=2.0 PySide6>=6.5 hid~=1.0.8 psutil>=5.8.0 opencv-python>=4.12.0.88 pyusb>=1.3.1 pillow>=11.3.0 pyyaml>=6.0.2
+fi
+
+# Configure permissions
+chown -R root:root "$VENV_DIR"
+chown -R root:root "$CONFIG_DIR"
+
+# If running in sudo context, configure for user
+if [ -n "$SUDO_USER" ]; then
+    USER_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    
+    # Create user data directory
+    mkdir -p "$USER_HOME/.local/share/thermalright-lcd-control"
+    chown -R "$SUDO_USER":"$SUDO_USER" "$USER_HOME/.local/share/thermalright-lcd-control"
+    
+    # Copy default configuration to user home
+    USER_CONFIG_DIR="$USER_HOME/.config/thermalright-lcd-control"
+    mkdir -p "$USER_CONFIG_DIR"
+    cp "$CONFIG_DIR/config.yaml" "$USER_CONFIG_DIR/config.yaml"
+    sed -i "s|@config_file@|\"$USER_CONFIG_DIR/config.yaml\"|g" /lib/systemd/system/thermalright-lcd-control.service
+    # Replace themes_dir path with absolute path
+    sed -i "s|themes_dir: \"./resources/themes/presets\"|themes_dir: \"$USER_CONFIG_DIR/themes/presets\"|g" "$GUI_CONFIG_FILE"
+    sed -i "s|backgrounds_dir: \"./resources/themes/backgrounds\"|backgrounds_dir: \"$USER_CONFIG_DIR/themes/backgrounds\"|g" "$GUI_CONFIG_FILE"
+    sed -i "s|foregrounds_dir: \"./resources/themes/foregrounds\"|foregrounds_dir: \"$USER_CONFIG_DIR/themes/foregrounds\"|g" "$GUI_CONFIG_FILE"
+    sed -i "s|service_config: \"./resources/config.yaml\"|service_config: \"$USER_CONFIG_DIR/config.yaml\"|g" "$GUI_CONFIG_FILE"
+
+    cp -R "$THEMES_DIR/themes" "$USER_CONFIG_DIR/themes"
+
+    chown -R "$SUDO_USER":"$SUDO_USER" "$USER_CONFIG_DIR"
+fi
+
+# Reload and enable service
+systemctl daemon-reload
+systemctl enable thermalright-lcd-control.service
+
+# Start service only if installation succeeds
+systemctl start thermalright-lcd-control.service || true
