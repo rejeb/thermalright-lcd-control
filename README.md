@@ -41,7 +41,7 @@ and added the option to select a collection of images to cycle through on the di
 ### Download Packages
 
 Download the appropriate package for your Linux distribution from
-the [Releases](https://github.com/yourusername/thermalright-lcd-control/releases) page:
+the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) page:
 
 - **`.deb`** - For Ubuntu, Debian, and derivatives
 - **`.rpm`** - For Fedora, RHEL, CentOS, openSUSE, and derivatives
@@ -50,12 +50,12 @@ the [Releases](https://github.com/yourusername/thermalright-lcd-control/releases
 
 1. **Download** the `.deb` package:
    ```bash
-   wget https://github.com/yourusername/thermalright-lcd-control/releases/latest/download/thermalright-lcd-control_*_all.deb
+   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control_1.0.0_all.deb -P /tmp/
    ```
 
 2. **Install** the package:
    ```bash
-   sudo apt install thermalright-lcd-control_*_all.deb
+   sudo apt install /tmp/thermalright-lcd-control_1.0.0_all.deb
    ```
 
 3. **Fix dependencies** (if needed):
@@ -67,16 +67,16 @@ the [Releases](https://github.com/yourusername/thermalright-lcd-control/releases
 
 1. **Download** the `.rpm` package:
    ```bash
-   wget https://github.com/yourusername/thermalright-lcd-control/releases/latest/download/thermalright-lcd-control-*-1.noarch.rpm
+   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control-1.0.0-1.noarch.rpm -P /tmp/
    ```
 
 2. **Install** the package:
    ```bash
    # Fedora/CentOS 8+
-   sudo dnf install thermalright-lcd-control-*-1.noarch.rpm
+   sudo dnf install /tmp/thermalright-lcd-control-*-1.noarch.rpm
    
    # RHEL/CentOS 7
-   sudo yum install thermalright-lcd-control-*-1.noarch.rpm
+   sudo yum install /tmp/thermalright-lcd-control-*-1.noarch.rpm
    ```
 
 ### openSUSE Installation
@@ -85,7 +85,7 @@ the [Releases](https://github.com/yourusername/thermalright-lcd-control/releases
 
 2. **Install** the package:
    ```bash
-   sudo zypper install thermalright-lcd-control-*-1.noarch.rpm
+   sudo zypper install /tmp/thermalright-lcd-control-*-1.noarch.rpm
    ```
 
 That's it! The application is now installed and ready to use.
