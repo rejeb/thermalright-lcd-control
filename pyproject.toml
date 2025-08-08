@@ -4,13 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thermalright-lcd-control"
-version = "1.0.0"
+version = "1.1.0"
 description = "Linux Thermal rigth lcd display control"
 authors = [{ name = "REJEB BEN REJEB", email = "benrejebrejeb@gmail.com" }]
 readme = "README.md"
 license = { file = "LICENSE" }
 dependencies = [
-    "requests>=2.0",
     "PySide6>=6.5",
     "hid~=1.0.8",
     "psutil>=5.8.0",

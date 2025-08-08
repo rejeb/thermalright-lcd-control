@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 
-import yaml
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -18,6 +17,7 @@ from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 
 from ..widgets.thumbnail_widget import ThumbnailWidget
 from ...common.logging_config import get_gui_logger
+from ...device_controller.display.config_loader import ConfigLoader
 
 
 class ThemesTab(QWidget):
@@ -25,14 +25,14 @@ class ThemesTab(QWidget):
 
     theme_selected = Signal(str)  # Signal emitted with selected theme path
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, themes_dir: str, dev_width: int, dev_height: int):
         super().__init__()
 
         self.logger = get_gui_logger()
-        self.config = config
-        self.themes_dir = Path(Path.cwd(),config.get('paths', {}).get('themes_dir', './themes'))
+        self.themes_dir = Path(Path.cwd(), themes_dir)
         self.thumbnails = []
-
+        self.dev_width = dev_width
+        self.dev_height = dev_height
         self.setup_ui()
         self.load_themes()
 
@@ -160,15 +160,12 @@ class ThemesTab(QWidget):
         """Extract background path and type from theme YAML file"""
         try:
             # Load theme configuration
-            with open(yaml_file, 'r', encoding='utf-8') as f:
-                theme_config = yaml.safe_load(f)
-
-            display_config = theme_config.get('display', {})
-            background_config = display_config.get('background', {})
+            config_loader = ConfigLoader()
+            theme_config = config_loader.load_config(str(yaml_file), self.dev_width, self.dev_height)
 
             # Get background path and type
-            background_path = background_config.get('path', "")
-            background_type = background_config.get('type', "image")
+            background_path = theme_config.background_path
+            background_type = theme_config.background_type.value
 
             return background_path, background_type
 

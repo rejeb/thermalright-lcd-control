@@ -8,16 +8,22 @@ A Linux application for controlling Thermalright LCD displays with an intuitive 
 ## Overview
 
 Thermalright LCD Control provides an easy-to-use interface for managing your Thermalright LCD display on Linux systems.
+
 The application features both a desktop GUI and a background service for seamless device control.
+
 I performed reverse engineering on the Thermalright Windows application to understand its internal mechanisms.
+
 During my analysis, I identified four different USB VID:PID combinations handled by the Windows application, all sharing
 the same interaction logic.
+
 Since I have access only to the Frozen Warframe 420 BLACK ARGB, my testing was limited exclusively to this specific
 device.
+
 Also, this application implements reading metrics from Amd, Nvidia, and Intel GPU. My testing was limited to Nvidia GPU.
+
 Feel free to contribute to this project and let me know if the application is working with other devices.
 
-For backgrounds, i have included all media formats supported by the Windows application 
+For backgrounds, i have included all media formats supported by the Windows application
 and added the option to select a collection of images to cycle through on the display.
 
 ## Features
@@ -50,12 +56,12 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.deb` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control_1.0.0_all.deb -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control_1.1.0_all.deb -P /tmp/
    ```
 
 2. **Install** the package:
    ```bash
-   sudo apt install /tmp/thermalright-lcd-control_1.0.0_all.deb
+   sudo apt install /tmp/thermalright-lcd-control_1.1.0_all.deb
    ```
 
 3. **Fix dependencies** (if needed):
@@ -67,7 +73,7 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.rpm` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control-1.0.0-1.noarch.rpm -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control-1.1.0-1.noarch.rpm -P /tmp/
    ```
 
 2. **Install** the package:
@@ -82,13 +88,60 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 ### openSUSE Installation
 
 1. **Download** the `.rpm` package
+   ```bash
+   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control-1.1.0-1.noarch.rpm -P /tmp/
+   ```
 
 2. **Install** the package:
    ```bash
    sudo zypper install /tmp/thermalright-lcd-control-*-1.noarch.rpm
    ```
 
-That's it! The application is now installed and ready to use.
+### tar.gz Installation
+
+1. **Download** the `.tar.gz` package:
+   ```bash
+   wget https://github.com/rejeb/thermalright-lcd-control/blob/master/releases/thermalright-lcd-control-1.1.0.tar.gz -P /tmp/
+   ```
+2. **Untar** the archive file:
+   ```bash
+   cd /tmp
+   
+   tar -xvf thermalright-lcd-control-1.1.0.tar.gz
+   ```
+3. **Check** for required dependencies:
+   /!\ Make sure you have these required dependencies installed:
+    - python3
+    - python3-pip
+    - python3-venv
+    - libhidapi-* or hidapi depending on your distribution
+    
+4. **Install** application:
+   ```bash
+   ```bash
+   cd /thermalright-lcd-control
+   
+   sudo ./install.sh
+   ```
+
+That's it! The application is now installed. You can see the default theme displayed on your Thermalright LCD device.
+
+## Troubleshooting
+If your device is 0416:5302 and nothing is displayed:
+    - Check service status to see if it is running
+    - Try restart service
+    - Check service logs located in /var/log/thermalright-lcd-control.log
+
+
+If your device is one of the other devices, contributions are welcome.
+Here some tips to help you:
+    - Check service status to see if it is running
+    - Check service logs located in /var/log/thermalright-lcd-control.log
+    - If the device is not working then this possibly mean that header value is not correct. 
+See [Add new device](#add-new-device) section to fix header generation.
+    - If the device is working but image is not good, this means that the image is not encoded correctly.
+See [Add new device](#add-new-device) section to fix image encoding by overriding method _`_encode_image`.
+
 
 ## Usage
 
@@ -120,14 +173,6 @@ sudo systemctl stop thermalright-lcd-control.service
 - **Desktop Environment**: Any modern Linux desktop (GNOME, KDE, XFCE, etc.)
 - **Hardware**: Compatible Thermalright LCD device
 
-## Uninstallation
-
-To remove the application:
-
-bash sudo apt-get remove thermalright-lcd-control
-
-To remove configuration files as well:
-
 ## Add new device
 
 While this application is made by reverse engineering Thermalrigth application.
@@ -145,6 +190,12 @@ To add a new device you need to:
     - Override method `_encode_image` to implement the specific device encoding logic and `get_header` for header value.
     - Add device creation in `load_device`.
     - Add device informations in [gui_config.yaml](resources/gui_config.yaml)
+- Add a new theme config file in `resources/config/config_{width}{height}.yaml` if screen resolution is not already
+  present in this folder.
+- Add a new folder in `resources/themes/foregrounds` named `{width}{height}` if theme resolution is not already present
+  in this folder and add foregrounds images.
+- Add a new folder in `resources/themes/preset` named `{width}{height}` if theme resolution is not already present in
+  this folder and add preconfigured themes.
 
 ## License
 

@@ -35,6 +35,7 @@ class MetricConfig:
     format_string: str = "{label}{value}"
     unit: str = ""
     enabled: bool = True
+
     def format_label(self):
         return f"{self.label}: " if self.label else ""
 

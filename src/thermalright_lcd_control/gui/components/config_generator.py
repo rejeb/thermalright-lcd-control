@@ -23,6 +23,9 @@ class ConfigGenerator:
                              date_widget, time_widget) -> Optional[dict]:
         """Generate YAML configuration file based on current preview state"""
         try:
+            foreground_path = self._add_resolution_placeholder(preview_manager.current_foreground_path,
+                                                               preview_manager.preview_width,
+                                                               preview_manager.preview_height)
             config_data = {
                 "display": {
                     "background": {
@@ -31,7 +34,7 @@ class ConfigGenerator:
                     },
                     "foreground": {
                         "enabled": preview_manager.current_foreground_path is not None,
-                        "path": preview_manager.current_foreground_path,
+                        "path": foreground_path,
                         "position": {"x": 0, "y": 0},
                         "alpha": preview_manager.foreground_opacity
                     },
@@ -81,12 +84,14 @@ class ConfigGenerator:
             config_data = self.generate_config_data(preview_manager, text_style, metric_widgets, date_widget,
                                                     time_widget)
 
-            services_config_path = self._get_service_config_file_path()
+            services_config_path = self._get_service_config_file_path(preview_manager.preview_width,
+                                                                      preview_manager.preview_height)
             self._save_config_file(services_config_path, config_data)
 
             if not preview:
                 # Save configuration
-                config_path = self._get_new_config_file_path()
+                config_path = self._get_new_config_file_path(preview_manager.preview_width,
+                                                             preview_manager.preview_height)
                 self._save_config_file(config_path, config_data)
                 return f"{config_path.absolute()}"
 
@@ -112,16 +117,17 @@ class ConfigGenerator:
         r, g, b, a = qcolor.getRgb()
         return f"#{r:02X}{g:02X}{b:02X}{a:02X}"
 
-    def _get_new_config_file_path(self) -> Path:
+    def _get_new_config_file_path(self, dev_width, dev_height) -> Path:
         """Generate new configuration file name and path based on current timestamp"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"config_{timestamp}.yaml"
-        themes_dir = self.config.get('paths', {}).get('themes_dir', './themes')
+        themes_dir = f"{self.config.get('paths', {}).get('themes_dir', './themes')}/{dev_width}{dev_height}"
         return Path(themes_dir) / filename
 
-    def _get_service_config_file_path(self) -> Optional[Path]:
+    def _get_service_config_file_path(self, dev_width, dev_height) -> Optional[Path]:
         try:
-            service_config_path = self.config.get('paths', {}).get('service_config', './config/service.yaml')
+            service_config_dir = self.config.get('paths', {}).get('service_config', './config')
+            service_config_path = f"{service_config_dir}/config_{dev_width}{dev_height}.yaml"
             return Path(service_config_path)
         except Exception as e:
             self.logger.error(f"Error updating service config: {e}")
@@ -132,3 +138,7 @@ class ConfigGenerator:
             yaml.dump(config_data, f, default_flow_style=False, allow_unicode=True, indent=2)
 
         return str(config_path)
+
+    def _add_resolution_placeholder(self, path: str, width: int, height: int) -> Optional[str]:
+
+        return path.replace(f"/{width}{height}/", "/{resolution}/") if path is not None else None

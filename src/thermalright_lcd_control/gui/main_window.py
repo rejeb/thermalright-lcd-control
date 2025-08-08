@@ -33,13 +33,13 @@ class MediaPreviewUI(QMainWindow):
         self.setWindowTitle(f"ThermalRight LCD Control:  {title_info}")
 
         self.detected_device = detected_device
-        preview_width = detected_device['width'] if detected_device else 320
-        preview_height = detected_device['height'] if detected_device else 240
+        self.dev_width = detected_device['width'] if detected_device else 320
+        self.dev_height = detected_device['height'] if detected_device else 240
 
         # Initialize paths
         paths = self.config.get('paths', {})
-        self.backgrounds_dir = paths.get('backgrounds_dir', './themes/backgrounds')
-        self.foregrounds_dir = paths.get('foregrounds_dir', './themes/foregrounds')
+        self.backgrounds_dir = f"{paths.get('backgrounds_dir', './themes/backgrounds')}"
+        self.foregrounds_dir = f"{paths.get('foregrounds_dir', './themes/foregrounds')}/{self.dev_width}{self.dev_height}"
 
         # Initialize components
         self.text_style = TextStyleConfig()
@@ -52,17 +52,17 @@ class MediaPreviewUI(QMainWindow):
         self.config_generator = ConfigGenerator(self.config)
 
         # Initialize UI
-        self.setup_window(preview_width, preview_height)
+        self.setup_window()
         self.setup_ui()
 
-    def setup_window(self, preview_width: int, preview_height: int):
+    def setup_window(self):
         """Configure window size and properties"""
         window_config = self.config.get('window', {})
         default_width = window_config.get('default_width', 1200)
         default_height = window_config.get('default_height', 600)
 
-        min_width = max(window_config.get('min_width', 800), preview_width + 580)
-        min_height = max(window_config.get('min_height', 600), preview_height + 200)
+        min_width = max(window_config.get('min_width', 800), self.dev_width + 580)
+        min_height = max(window_config.get('min_height', 600), self.dev_height + 200)
 
         self.setGeometry(100, 100, max(default_width, min_width), max(default_height, min_height))
         self.setMinimumSize(min_width, min_height)
@@ -177,7 +177,9 @@ class MediaPreviewUI(QMainWindow):
         self.tab_widget = QTabWidget()
 
         # Themes tab (moved to first position)
-        self.themes_tab = ThemesTab(self.config)
+
+        themes_dir = f"{self.config.get('paths', {}).get('themes_dir', './themes')}/{self.dev_width}{self.dev_height}"
+        self.themes_tab = ThemesTab(themes_dir, dev_width=self.dev_width, dev_height=self.dev_height)
         self.themes_tab.theme_selected.connect(self.on_theme_selected)
         self.media_tabs.append(self.themes_tab)
         self.tab_widget.addTab(self.themes_tab, "Themes")
@@ -229,7 +231,8 @@ class MediaPreviewUI(QMainWindow):
             # Load foreground if enabled
             foreground_config = display_config.get('foreground', {})
             if foreground_config.get('enabled', False):
-                foreground_path = foreground_config.get('path')
+                foreground_path = foreground_config.get('path').format(
+                    resolution=f"{self.dev_width}{self.dev_height}")
                 foreground_alpha = foreground_config.get('alpha', 1.0)
                 self.logger.debug(f"Foreground path: {foreground_path}, alpha: {foreground_alpha}")
 
@@ -328,10 +331,8 @@ class MediaPreviewUI(QMainWindow):
                 label = metric_config.get('label', '')
                 self.logger.debug(f"metric: {metric_name} Label: {label}")
                 unit = metric_config.get('unit', '')
-                if label:
-                    widget.set_custom_label(label)
-                if unit:
-                    widget.set_custom_unit(unit)
+                widget.set_custom_label(label)
+                widget.set_custom_unit(unit)
 
                 # Apply font size and color (create a temporary style for this metric)
                 font_size = metric_config.get('font_size')

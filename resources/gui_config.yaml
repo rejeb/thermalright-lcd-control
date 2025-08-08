@@ -5,7 +5,7 @@ paths:
   themes_dir: "./resources/themes/presets"
   backgrounds_dir: "./resources/themes/backgrounds"
   foregrounds_dir: "./resources/themes/foregrounds"
-  service_config: "./resources/config.yaml"
+  service_config: "./resources/config"
 window:
   default_width: 1200
   default_height: 700

@@ -17,7 +17,8 @@ DIST_DIR := releases
 # Signing key
 GPG_KEY=/home/rbenrejeb/.ssh/rbr_gpg.key
 
-.PHONY: build-fpm-deb build-fpm-rpm clean prepare-dist
+.PHONY: build-fpm-deb build-fpm-rpm clean prepare-dist build-tar-gz
+
 
 # Prepare dist directory
 prepare-dist:
@@ -39,8 +40,10 @@ build-fpm-deb: prepare-dist
 		--depends python3-venv \
 		--depends "libhidapi-hidraw0 | libhidapi-libusb0" \
 		--after-install debian/postinst \
+		--before-install debian/preinst \
+		--force \
 		--deb-no-default-config-files \
-		./resources/config.yaml=/etc/$(PACKAGE)/config.yaml \
+		./resources/config/=/etc/$(PACKAGE)/config/ \
 		./resources/themes/=/etc/$(PACKAGE)/ \
 		./src/=/usr/lib/$(PACKAGE)/ \
 		./pyproject.toml=/usr/lib/$(PACKAGE)/pyproject.toml \
@@ -65,20 +68,22 @@ build-fpm-rpm: prepare-dist
 		-p $(DIST_DIR)/$(PACKAGE)-$(VERSION)-1.noarch.rpm \
 		--description "Linux Thermal Right LCD display control" \
 		--license Apache-2.0 \
-		--maintainer "Rejeb <15DFE195E662F28906E84BB5BE17E44362ABA5BB>" \
+		--maintainer "Rejeb <benrejebrejeb@gmail.com>" \
 		--url "https://www.github.com/rejeb/thermalright-lcd-control" \
   		--vendor "REJEB BEN REJEB" \
 		--category "utils" \
 		--depends python3 \
 		--depends python3-virtualenv \
 		--depends hidapi-devel \
+		--before-install debian/preinst \
 		--after-install debian/postinst \
+		--force \
 		./src/=/usr/lib/$(PACKAGE)/ \
 		./pyproject.toml=/usr/lib/$(PACKAGE)/pyproject.toml \
 		./README.md=/usr/lib/$(PACKAGE)/README.md \
 		./LICENSE=/usr/share/doc/$(PACKAGE)/copyright/LICENSE \
 		./resources/thermalright-lcd-control.service=/usr/lib/systemd/system/thermalright-lcd-control.service \
-		./resources/config.yaml=/etc/$(PACKAGE)/config.yaml \
+		./resources/config/=/etc/$(PACKAGE)/config/ \
 		./resources/gui_config.yaml=/etc/$(PACKAGE)/gui_config.yaml \
 		./resources/themes/=/usr/share/$(PACKAGE)/themes/ \
 		./debian/usr/bin/thermalright-lcd-control=/usr/bin/thermalright-lcd-control \
@@ -89,10 +94,15 @@ build-fpm-rpm: prepare-dist
 		./resources/128x128/icon.png=/usr/share/icons/hicolor/128x128/apps/thermalright-lcd-control.png \
 		./resources/256x256/icon.png=/usr/share/icons/hicolor/256x256/apps/thermalright-lcd-control.png
 
-# Clean up
+build-tar-gz: prepare-dist
+	@echo "Creating TAR.GZ package using create_package.sh..."
+	bash create_package.sh
+	@echo "TAR.GZ package created successfully!"
+
 clean:
 	rm -rf $(DIST_DIR)
 	rm -rf rpmbuild
+	rm -rf build
 
 # Build both packages
-build-all: clean build-fpm-deb build-fpm-rpm
+build-all: clean build-fpm-deb build-fpm-rpm build-tar-gz

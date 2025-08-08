@@ -14,7 +14,7 @@ class ConfigLoader:
     """Load and parse YAML configuration files with global font support"""
 
     def __init__(self):
-        self.logger = self.logger = LoggerConfig.setup_service_logger()
+        self.logger = LoggerConfig.setup_service_logger()
 
     def _hex_to_rgba(self, hex_color: str) -> Tuple[int, int, int, int]:
         """Convert hex color (#RRGGBBAA) to RGBA tuple"""
@@ -64,7 +64,7 @@ class ConfigLoader:
             enabled=text_data.get("enabled", True)
         )
 
-    def load_config(self, config_path: str) -> DisplayConfig:
+    def load_config(self, config_path: str, width: int, height: int) -> DisplayConfig:
         """Load configuration from YAML file"""
         config_file = Path(config_path)
 
@@ -75,14 +75,14 @@ class ConfigLoader:
             with open(config_file, 'r', encoding='utf-8') as file:
                 yaml_data = yaml.safe_load(file)
 
-            config = self.load_config_from_dict(yaml_data)
+            config = self.load_config_from_dict(yaml_data, width, height)
             self.logger.info(f"Configuration loaded successfully from {config_path}")
             return config
         except Exception as e:
             self.logger.error(f"Error loading configuration: {e}")
             raise
 
-    def load_config_from_dict(self, yaml_data: dict) -> DisplayConfig:
+    def load_config_from_dict(self, yaml_data: dict, width: int, height: int) -> DisplayConfig:
         display_data = yaml_data["display"]
         # Parse metrics configurations
         metrics_configs = []
@@ -103,13 +103,17 @@ class ConfigLoader:
         foreground_position = (0, 0)
         foreground_alpha = 1.0
         if display_data["foreground"]["enabled"]:
-            foreground_path = display_data["foreground"]["path"]
+            foreground_path = str(display_data["foreground"]["path"]).format(
+                resolution=f"{width}{height}")
             foreground_position = (
                 display_data["foreground"]["position"]["x"],
                 display_data["foreground"]["position"]["y"]
             )
             foreground_alpha = display_data["foreground"]["alpha"]
+
         config = DisplayConfig(
+            output_width=width,
+            output_height=height,
             background_path=display_data["background"]["path"],
             background_type=BackgroundType(display_data["background"]["type"]),
             foreground_image_path=foreground_path,

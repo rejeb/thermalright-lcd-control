@@ -5,12 +5,12 @@ from .display.display_device import load_device
 from ..common.logging_config import get_service_logger
 
 
-def run_service(config_file: str):
+def run_service(config_dir: str):
     logger = get_service_logger()
     logger.info("Device controller service started")
 
     try:
-        device = load_device(config_file)
+        device = load_device(config_dir)
         device.reset()
         device.run()
     except KeyboardInterrupt:
