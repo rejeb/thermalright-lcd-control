@@ -38,8 +38,6 @@ and added the option to select a collection of images to cycle through on the di
 | VID:PID   | Tested |
 |-----------|--------|
 | 0416:5302 | Yes    |
-| 0416:8001 | No     |
-| 0418:5303 | No     |
 | 0418:5304 | No     |
 
 ## Installation
@@ -56,12 +54,12 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.deb` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control_1.1.0_all.deb -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control_1.1.1_all.deb -P /tmp/
    ```
 
 2. **Install** the package:
    ```bash
-   sudo apt install /tmp/thermalright-lcd-control_1.1.0_all.deb
+   sudo apt install /tmp/thermalright-lcd-control_1.1.1_all.deb
    ```
 
 3. **Fix dependencies** (if needed):
@@ -73,7 +71,7 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.rpm` package:
    ```bash
-   wget https://media.githubusercontent.com/media/rejeb/thermalright-lcd-control/refs/heads/master/releases/thermalright-lcd-control-1.1.0-1.noarch.rpm -P /tmp/
+   wget https://media.githubusercontent.com/media/rejeb/thermalright-lcd-control/refs/heads/master/releases/thermalright-lcd-control-1.1.1-1.noarch.rpm -P /tmp/
    ```
 
 2. **Install** the package:
@@ -89,25 +87,25 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.rpm` package
    ```bash
-   wget https://media.githubusercontent.com/media/rejeb/thermalright-lcd-control/refs/heads/master/releases/thermalright-lcd-control-1.1.0-1.noarch.rpm -P /tmp/
+   wget https://media.githubusercontent.com/media/rejeb/thermalright-lcd-control/refs/heads/master/releases/thermalright-lcd-control-1.1.1-1.noarch.rpm -P /tmp/
    ```
 
 2. **Install** the package:
    ```bash
-   sudo zypper install /tmp/thermalright-lcd-control-1.1.0-1.noarch.rpm
+   sudo zypper install /tmp/thermalright-lcd-control-1.1.1-1.noarch.rpm
    ```
 
 ### tar.gz Installation
 
 1. **Download** the `.tar.gz` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control-1.1.0.tar.gz -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control-1.1.1.tar.gz -P /tmp/
    ```
 2. **Untar** the archive file:
    ```bash
    cd /tmp
    
-   tar -xvf thermalright-lcd-control-1.1.0.tar.gz
+   tar -xvf thermalright-lcd-control-1.1.1.tar.gz
    ```
 3. **Check** for required dependencies:
    /!\ Make sure you have these required dependencies installed:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "thermalright-lcd-control"
-version = "1.1.0"
+version = "1.1.1"
 description = "Linux Thermal rigth lcd display control"
 authors = [{ name = "REJEB BEN REJEB", email = "benrejebrejeb@gmail.com" }]
 readme = "README.md"
