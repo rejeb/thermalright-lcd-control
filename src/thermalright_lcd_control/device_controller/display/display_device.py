@@ -6,7 +6,7 @@ import pathlib
 import struct
 import time
 from abc import abstractmethod, ABC
-return FrozenWarframeLCD(config_dir)
+from .frozen_warframe_lcd import FrozenWarframeLCD
 from typing import Optional
 
 import hid
