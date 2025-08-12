@@ -142,11 +142,22 @@ class DisplayDevice04165302(DisplayDevice):
 def load_device(config_dir: str) -> Optional[DisplayDevice]:
     try:
         for device in hid.enumerate():
+            if device['vendor_id'] == 0x0402 and device['product_id'] == 0x3922:  # 👈 Your device
+                return FrozenWarframeLCD(config_dir)
+
             if device['vendor_id'] == 0x0416:
                 if device['product_id'] == 0x5302:
                     return DisplayDevice04165302(config_dir)
+                elif device['product_id'] == 0x8001:
+                    return DisplayDevice04168001(config_dir)
             elif device['vendor_id'] == 0x0418:
-                if device['product_id'] == 0x5304:
+                if device['product_id'] == 0x5303:
+                    return DisplayDevice04185303(config_dir)
+                elif device['product_id'] == 0x5304:
                     return DisplayDevice04185304(config_dir)
+            elif device['vendor_id'] == 0x87ad:
+                if device['product_id'] == 0x70db:
+                    return DisplayDevice087ad070db(config_dir)
     except Exception as e:
         raise Exception(f"No supported device found: {e}") from e
+
