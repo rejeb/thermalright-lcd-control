@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
+import usb.core
+import usb.util
 import pathlib
 import struct
 import time
@@ -139,10 +141,12 @@ class DisplayDevice04165302(DisplayDevice):
         return prefix + body
 
 
+
 def load_device(config_dir: str) -> Optional[DisplayDevice]:
     try:
+        # Primary detection via HID
         for device in hid.enumerate():
-            if device['vendor_id'] == 0x0402 and device['product_id'] == 0x3922:  # 👈 Your device
+            if device['vendor_id'] == 0x0402 and device['product_id'] == 0x3922:
                 return FrozenWarframeLCD(config_dir)
 
             if device['vendor_id'] == 0x0416:
@@ -158,6 +162,14 @@ def load_device(config_dir: str) -> Optional[DisplayDevice]:
             elif device['vendor_id'] == 0x87ad:
                 if device['product_id'] == 0x70db:
                     return DisplayDevice087ad070db(config_dir)
+
+        # Fallback detection via pyusb
+        dev = usb.core.find(idVendor=0x0402, idProduct=0x3922)
+        if dev:
+            return FrozenWarframeLCD(config_dir)
+
+        raise Exception("No supported device found")
+
     except Exception as e:
-        raise Exception(f"No supported device found: {e}") from e
+        raise Exception(f"Device detection failed: {e}") from e
 
