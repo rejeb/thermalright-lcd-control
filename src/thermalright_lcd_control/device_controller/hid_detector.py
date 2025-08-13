@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 
-import hid
 import yaml
 import os
 
@@ -28,8 +27,8 @@ def detect_hid_device(config_dir: str):
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
-    target_vid = config["device"]["vendor_id"]
-    target_pid = config["device"]["product_id"]
+    target_vid = config["device"]["vid"]
+    target_pid = config["device"]["pid"]
 
     for dev in hid.enumerate():
         if dev['vendor_id'] == target_vid and dev['product_id'] == target_pid:
