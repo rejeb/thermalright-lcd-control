@@ -7,6 +7,8 @@ A Linux application for controlling Thermalright LCD displays with an intuitive 
 
 ## Overview
 
+#### Currently not working - rewrittent to include USB detection - service will load but unable to detect devices yet 
+
 Thermalright LCD Control provides an easy-to-use interface for managing your Thermalright LCD display on Linux systems.
 
 The application features both a desktop GUI and a background service for seamless device control.
