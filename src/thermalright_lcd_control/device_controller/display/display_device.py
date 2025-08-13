@@ -1,6 +1,5 @@
  SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
-
 import pathlib
 import struct
 import time
@@ -98,17 +97,6 @@ class DisplayDevice(ABC):
             frame_packets.append(bytes([0x00]) + chunk)
         return frame_packets
 
-    def run(self):
-        self.logger.info(f"{self} running")
-        while True:
-            img, delay_time = self._get_generator().get_frame_with_duration()
-            header = self.get_header()
-            img_bytes = header + self._encode_image(img)
-            frame_packets = self._prepare_frame_packets(img_bytes)
-            for packet in frame_packets:
-                self.write(packet)
-            time.sleep(delay_time)
-
 
 # Subclasses for specific devices
 class DisplayDevice04185303(DisplayDevice):
@@ -149,7 +137,30 @@ class DisplayDevice04165302(DisplayDevice):
 
 class DisplayDevice04023922(DisplayDevice):
     def __init__(self, config_dir: str):
-        super().__init__(0x0402, 0x3992, 512, 480, 480, config_dir)
+        super().__init__(0x0402, 0x3992, 512, 320, 240, config_dir)
 
     def get_header(self) -> bytes:
-        return struct.pack('<BBHHH', 0x69, 0x88, 480, 480, 0)
+        prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
+        body = struct.pack('<6HIH', 2, 1, 320, 240, 2, 0, 153600, 0)
+        return prefix + body
+
+    def run(self):
+        self.logger.info(f"{self} running")
+
+        while True:
+            try:
+                img, delay_time = self._get_generator().get_frame_with_duration()
+                header = self.get_header()
+                img_bytes = header + self._encode_image(img)
+                frame_packets = self._prepare_frame_packets(img_bytes)
+
+                for packet in frame_packets:
+                    self.logger.debug(f"Sending packet of size {len(packet)}")
+                    self.write(packet)
+
+                time.sleep(delay_time)
+
+            except Exception as e:
+                self.logger.error(f"Error in display run loop: {e}")
+                break
+
