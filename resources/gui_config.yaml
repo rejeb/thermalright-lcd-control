@@ -38,3 +38,4 @@ supported_devices:
     width: 320
     height: 240
     transport: "usb"
+
