@@ -111,6 +111,51 @@ class DisplayDevice(ABC):
             frame_packets.append(bytes([0x00]) + chunk)
         return frame_packets
 
+    def run(self):
+        logger = LoggerConfig.setup_service_logger()
+        logger.info(f"Starting run loop for DisplayDevice(vid={hex(self.vid)}, pid={hex(self.pid)})")
+        try:
+            while True:
+                # Simulate communication with the device
+                logger.debug("Attempting to communicate with the device...")
+                if not self.is_device_connected():
+                    logger.warning(f"Device(vid={hex(self.vid)}, pid={hex(self.pid)}) not found, retrying...")
+                    time.sleep(1)  # Retry delay
+                    continue
+
+                # Example: Send a test command to the device
+                try:
+                    self.send_test_command()
+                    logger.debug("Test command sent successfully")
+                except Exception as e:
+                    logger.error(f"Failed to send test command: {e}")
+                    raise
+
+                # Example: Receive a response from the device
+                try:
+                    response = self.receive_response()
+                    logger.debug(f"Received response: {response}")
+                except Exception as e:
+                    logger.error(f"Failed to receive response: {e}")
+                    raise
+
+                time.sleep(1)  # Main loop delay
+        except Exception as e:
+            logger.error(f"Run loop encountered an error: {e}")
+            raise
+
+    def is_device_connected(self):
+        # Placeholder for actual device connection check
+        return True
+
+    def send_test_command(self):
+        # Placeholder for sending a command to the device
+        pass
+
+    def receive_response(self):
+        # Placeholder for receiving a response from the device
+        return "OK"
+
 
 # Subclasses for specific devices
 class DisplayDevice04185303(DisplayDevice):
