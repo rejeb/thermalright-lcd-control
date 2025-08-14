@@ -234,53 +234,35 @@ class DisplayDevice04023922(DisplayDevice):
         time.sleep(1)  # Give USB stack time to settle
 
         for attempt in range(10):
+            self.logger.debug(f"Attempt {attempt + 1}/10: Searching for device VID={hex(self.vid)}, PID={hex(self.pid)}")
             try:
                 self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
                 if self.dev is not None:
                     self.logger.debug(f"Found device: {self.dev}")
-                    
+
                     # Initialize Mass Storage interface
+                    self.logger.debug("Setting USB configuration")
                     self.dev.set_configuration()
                     cfg = self.dev.get_active_configuration()
                     intf = cfg[(0, 0)]
-                    
+
                     if self.dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                        self.logger.debug(f"Kernel driver active on interface {intf.bInterfaceNumber}, detaching it")
                         self.dev.detach_kernel_driver(intf.bInterfaceNumber)
                         self.logger.info(f"Detached kernel driver from interface {intf.bInterfaceNumber}")
 
-                    usb.util.claim_interface(self.dev, intf.bInterfaceNumber)
-                    self.logger.info(f"Interface {intf.bInterfaceNumber} claimed successfully")
-
-                    # Send test packet
-                    test_packet = bytes([0x00] * 64)
-                    self.write(test_packet)
-                    break
+                    self.logger.info("Device successfully initialized")
+                    return
+                else:
+                    self.logger.warning(f"Device not found on attempt {attempt + 1}")
+            except usb.core.USBError as e:
+                self.logger.error(f"USBError during device initialization: {e}", exc_info=True)
             except Exception as e:
-                self.logger.error(f"Failed to initialize USB device: {e}")
-                self.dev = None
-                time.sleep(0.5)
-                continue
+                self.logger.error(f"Unexpected error during device initialization: {e}", exc_info=True)
 
-        if self.dev is None:
-            self.logger.error(f"{self} not found during run() after retries")
-            return
+            time.sleep(1)  # Retry delay
 
-        while True:
-            try:
-                img, delay_time = self._get_generator().get_frame_with_duration()
-                header = self.get_header()
-                img_bytes = header + self._encode_image(img)
-                frame_packets = self._prepare_frame_packets(img_bytes)
-
-                for packet in frame_packets:
-                    self.logger.debug(f"Sending packet of size {len(packet)}")
-                    self.write(packet)
-
-                time.sleep(delay_time)
-
-            except Exception as e:
-                self.logger.error(f"Error in display run loop: {e}")
-                break
+        self.logger.error(f"{self} not found during run() after 10 attempts")
 
 
 DEVICE_CLASSES = {
