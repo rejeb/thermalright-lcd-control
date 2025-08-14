@@ -119,6 +119,18 @@ class LoggerConfig:
             return None
 
     @classmethod
+    def _init_log_dir(cls):
+        try:
+            cls.LOG_DIR.mkdir(parents=True, exist_ok=True)
+            error_log = cls.LOG_DIR / 'error.log'
+            error_log.touch(exist_ok=True)
+            print(f"Log directory created at: {cls.LOG_DIR}")
+            return True
+        except Exception as e:
+            print(f"Failed to create log directory: {e}")
+            return False
+
+    @classmethod
     def setup_service_logger(cls):
         """Setup logger for the device controller component"""
         if cls._logger is not None:
@@ -151,15 +163,18 @@ class LoggerConfig:
         os.makedirs(log_dir, exist_ok=True)
         error_log = os.path.join(log_dir, 'error.log')
         
-        file_handler = RotatingFileHandler(
-            error_log,
-            maxBytes=1024*1024,  # 1MB
-            backupCount=3
-        )
-        file_handler.setLevel(logging.ERROR)
-        file_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s\nTraceback:\n%(exc_info)s')
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
+        try:
+            file_handler = RotatingFileHandler(
+                error_log,
+                maxBytes=1024*1024,  # 1MB
+                backupCount=3
+            )
+            file_handler.setLevel(logging.ERROR)
+            file_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s\nTraceback:\n%(exc_info)s')
+            file_handler.setFormatter(file_formatter)
+            logger.addHandler(file_handler)
+        except Exception as e:
+            print(f"Failed to setup file logging: {e}")
 
         cls._logger = logger
         return logger

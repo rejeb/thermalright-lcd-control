@@ -81,7 +81,28 @@ copy_files() {
     chmod +x "$PACKAGE_DIR/uninstall.sh"
 }
 
+# Add log directory to package data
+mkdir -p "pkg/usr/local/share/thermalright-lcd-control/logs"
+chmod 755 "pkg/usr/local/share/thermalright-lcd-control/logs"
 
+# Add post-install script to create user log directory
+cat > pkg/DEBIAN/postinst << 'EOF'
+#!/bin/sh
+set -e
+
+# Create log directory for each user
+for USER_HOME in /home/*; do
+    if [ -d "$USER_HOME" ]; then
+        USER=$(basename "$USER_HOME")
+        LOG_DIR="$USER_HOME/.local/share/thermalright-lcd-control/logs"
+        mkdir -p "$LOG_DIR"
+        chown -R "$USER:$USER" "$LOG_DIR"
+        chmod 755 "$LOG_DIR"
+    fi
+done
+EOF
+
+chmod 755 pkg/DEBIAN/postinst
 
 create_package() {
     log_info "Creating tar.gz package..."
