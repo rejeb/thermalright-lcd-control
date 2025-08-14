@@ -12,6 +12,11 @@ from thermalright_lcd_control.common.logging_config import get_service_logger
 def load_device(config_dir: str):
     logger = get_service_logger()
 
+    # Log available device classes
+    logger.debug("Available device classes:")
+    for (vid, pid), cls in DEVICE_CLASSES.items():
+        logger.debug(f"VID={hex(vid)}, PID={hex(pid)} -> Class={cls.__name__}")
+
     # Attempt HID detection first
     try:
         logger.info("Attempting HID detection")
@@ -50,7 +55,7 @@ def load_device(config_dir: str):
             logger.info(f"Device class {device_class.__name__} initialized successfully")
             return device
         except Exception as e:
-            logger.error(f"Failed to initialize device class {device_class.__name__}: {e}")
+            logger.error(f"Failed to initialize device class {device_class.__name__}: {e}", exc_info=True)
             raise
     else:
         logger.warning(f"No matching DisplayDevice class for VID={hex(vid)}, PID={hex(pid)}")
@@ -65,7 +70,7 @@ def load_device(config_dir: str):
         else:
             logger.warning("No USB-compatible device found")
     except Exception as e:
-        logger.error(f"USB detection failed: {e}")
+        logger.error(f"USB detection failed: {e}", exc_info=True)
         raise
 
     logger.error("Device loading failed. No compatible device found.")
