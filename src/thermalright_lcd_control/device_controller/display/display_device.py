@@ -80,20 +80,36 @@ class DisplayDevice(ABC):
             raise ValueError(f"{self} not found")
 
         try:
+            self.logger.debug(f"Configuring USB device {self}")
             dev.set_configuration()
             cfg = dev.get_active_configuration()
             intf = cfg[(0, 0)]
 
             if dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                self.logger.debug(f"Detaching kernel driver from interface {intf.bInterfaceNumber}")
                 dev.detach_kernel_driver(intf.bInterfaceNumber)
-                self.logger.info(f"Detached kernel driver from interface {intf.bInterfaceNumber}")
 
+            self.logger.debug(f"Claiming interface {intf.bInterfaceNumber}")
             usb.util.claim_interface(dev, intf.bInterfaceNumber)
-            self.logger.debug(f"Interface {intf.bInterfaceNumber} claimed")
 
-            dev.write(2, packet)  # EP 2 OUT
+            # Mass Storage specific initialization
+            self.logger.debug(f"Sending packet (size: {len(packet)}) to EP 2 OUT")
+            bytes_written = dev.write(0x02, packet)  # EP 2 OUT
+            self.logger.debug(f"Written {bytes_written} bytes to device")
+
+            # Try to read response from EP 1 IN
+            try:
+                response = dev.read(0x81, 64, timeout=1000)  # EP 1 IN
+                self.logger.debug(f"Received response: {response.tobytes().hex()}")
+            except usb.core.USBError as e:
+                if e.errno == 110:  # Timeout
+                    self.logger.debug("No response from device (timeout)")
+                else:
+                    raise
+
         except Exception as e:
             self.logger.error(f"Failed to write packet to {self}: {e}")
+            raise
 
     def reset(self):
         dev = self.dev
@@ -218,27 +234,32 @@ class DisplayDevice04023922(DisplayDevice):
         time.sleep(1)  # Give USB stack time to settle
 
         for attempt in range(10):
-            self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
-            if self.dev is not None:
-                try:
+            try:
+                self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+                if self.dev is not None:
+                    self.logger.debug(f"Found device: {self.dev}")
+                    
+                    # Initialize Mass Storage interface
                     self.dev.set_configuration()
                     cfg = self.dev.get_active_configuration()
                     intf = cfg[(0, 0)]
-
+                    
                     if self.dev.is_kernel_driver_active(intf.bInterfaceNumber):
                         self.dev.detach_kernel_driver(intf.bInterfaceNumber)
                         self.logger.info(f"Detached kernel driver from interface {intf.bInterfaceNumber}")
 
                     usb.util.claim_interface(self.dev, intf.bInterfaceNumber)
                     self.logger.info(f"Interface {intf.bInterfaceNumber} claimed successfully")
-                except Exception as e:
-                    self.logger.error(f"Failed to initialize USB device: {e}")
-                    self.dev = None
-                    time.sleep(0.5)
-                    continue
-                break
-            self.logger.warning(f"{self} not found (attempt {attempt + 1}), retrying...")
-            time.sleep(0.5)
+
+                    # Send test packet
+                    test_packet = bytes([0x00] * 64)
+                    self.write(test_packet)
+                    break
+            except Exception as e:
+                self.logger.error(f"Failed to initialize USB device: {e}")
+                self.dev = None
+                time.sleep(0.5)
+                continue
 
         if self.dev is None:
             self.logger.error(f"{self} not found during run() after retries")
