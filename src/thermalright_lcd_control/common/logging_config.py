@@ -101,78 +101,67 @@ class LoggerConfig:
 
     @classmethod
     def _get_log_directory(cls):
-        """Get appropriate log directory based on context"""
-        # Try user's home directory first
-        user_log_dir = Path(os.path.expanduser('~/.local/share/thermalright-lcd-control/logs'))
-        if user_log_dir.parent.exists() and os.access(user_log_dir.parent, os.W_OK):
-            return user_log_dir
-        
-        # Fallback to system directory if running as service
-        system_log_dir = Path('/var/log/thermalright-lcd-control')
-        return system_log_dir
+        """Determine the log directory."""
+        # Use explicit environment variable if set
+        env_dir = os.getenv('THERMALRIGHT_LOG_DIR')
+        if env_dir:
+            return Path(env_dir).expanduser()
+
+        # Fallback to $HOME/.local/share/thermalright-lcd-control/logs
+        home_dir = os.getenv('HOME', str(Path.home()))
+        return Path(home_dir) / '.local' / 'share' / 'thermalright-lcd-control' / 'logs'
 
     @classmethod
     def _ensure_log_directory(cls):
+        """Ensure the log directory and error log file exist."""
         try:
             log_dir = cls._get_log_directory()
             log_dir.mkdir(parents=True, exist_ok=True)
-            
+
             error_log = log_dir / cls.ERROR_LOG
             error_log.touch(exist_ok=True)
-            
+
             # Set permissions
             log_dir.chmod(0o755)
             error_log.chmod(0o644)
-            
-            print(f"Using log directory: {log_dir} (permissions: {oct(log_dir.stat().st_mode)})")
-            print(f"Error log file: {error_log} (permissions: {oct(error_log.stat().st_mode)})")
+
+            print(f"[thermalright] Using log directory: {log_dir}", file=sys.stderr)
+            print(f"[thermalright] Error log file: {error_log}", file=sys.stderr)
             return str(error_log)
         except Exception as e:
-            print(f"Failed to create log directory: {e}", file=sys.stderr)
+            print(f"[thermalright] Failed to create log directory: {e}", file=sys.stderr)
             return None
 
     @classmethod
     def setup_service_logger(cls):
-        """Setup logger for the device controller component"""
-        if cls._logger is not None:
-            return cls._logger
-
-        # Ensure log directory exists before setting up logger
+        """Set up the logger for the service."""
         error_log_path = cls._ensure_log_directory()
-        if not error_log_path:
-            print("Failed to create log directory, falling back to console logging", file=sys.stderr)
 
         logger = logging.getLogger('thermalright.device_controller')
         logger.handlers.clear()
-        logger.setLevel(getattr(logging, os.getenv('LOG_LEVEL', 'INFO').upper(), logging.INFO))
+        logger.setLevel(logging.DEBUG)
 
-        # Always add console handler first
-        console_handler = cls._create_console_handler()
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+        console_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s'))
         logger.addHandler(console_handler)
 
-        # Add error file handler if directory creation was successful
+        # File handler for error logs
         if error_log_path:
             try:
                 file_handler = RotatingFileHandler(
                     error_log_path,
-                    maxBytes=1024*1024,
-                    backupCount=3
+                    maxBytes=10 * 1024 * 1024,  # 10MB
+                    backupCount=5
                 )
                 file_handler.setLevel(logging.ERROR)
-                file_formatter = logging.Formatter(
-                    '%(asctime)s [%(levelname)s] %(name)s: %(message)s\n'
-                    'File: %(pathname)s:%(lineno)d\n'
-                    'Function: %(funcName)s\n'
-                    '%(exc_info)s\n'
-                )
-                file_handler.setFormatter(file_formatter)
+                file_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s\n%(exc_info)s'))
                 logger.addHandler(file_handler)
-                logger.info(f"Error logging enabled: {error_log_path}")
             except Exception as e:
-                logger.error(f"Failed to setup error logging: {e}")
+                logger.error(f"[thermalright] Failed to add file handler: {e}")
 
         logger.propagate = False
-        cls._logger = logger
         return logger
 
     @staticmethod
