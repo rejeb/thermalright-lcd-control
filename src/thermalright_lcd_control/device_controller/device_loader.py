@@ -44,12 +44,19 @@ def load_device(config_dir: str):
     device_class = DEVICE_CLASSES.get((vid, pid))
     if device_class:
         logger.info(f"Instantiating device class for VID={hex(vid)}, PID={hex(pid)}")
-        return device_class(config_dir)
+        try:
+            device = device_class(config_dir)
+            logger.info(f"Device class {device_class.__name__} initialized successfully")
+            return device
+        except Exception as e:
+            logger.error(f"Failed to initialize device class {device_class.__name__}: {e}")
+            raise
     else:
         logger.warning(f"No matching DisplayDevice class for VID={hex(vid)}, PID={hex(pid)}")
 
     # Fallback to pyusb detection
     try:
+        logger.info(f"Attempting USB detection for VID={hex(vid)}, PID={hex(pid)}")
         device = detect_usb_device(vid, pid, logger)
         if device:
             logger.info("Device detected via USB (pyusb)")
@@ -58,6 +65,7 @@ def load_device(config_dir: str):
             logger.warning("No USB-compatible device found")
     except Exception as e:
         logger.error(f"USB detection failed: {e}")
+        raise
 
     raise ValueError("No supported device found via HID or USB")
 
