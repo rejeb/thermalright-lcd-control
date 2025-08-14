@@ -220,6 +220,22 @@ class DisplayDevice04023922(DisplayDevice):
         for attempt in range(10):
             self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
             if self.dev is not None:
+                try:
+                    self.dev.set_configuration()
+                    cfg = self.dev.get_active_configuration()
+                    intf = cfg[(0, 0)]
+
+                    if self.dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                        self.dev.detach_kernel_driver(intf.bInterfaceNumber)
+                        self.logger.info(f"Detached kernel driver from interface {intf.bInterfaceNumber}")
+
+                    usb.util.claim_interface(self.dev, intf.bInterfaceNumber)
+                    self.logger.info(f"Interface {intf.bInterfaceNumber} claimed successfully")
+                except Exception as e:
+                    self.logger.error(f"Failed to initialize USB device: {e}")
+                    self.dev = None
+                    time.sleep(0.5)
+                    continue
                 break
             self.logger.warning(f"{self} not found (attempt {attempt + 1}), retrying...")
             time.sleep(0.5)
