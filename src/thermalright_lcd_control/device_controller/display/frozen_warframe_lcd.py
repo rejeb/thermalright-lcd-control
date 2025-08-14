@@ -31,3 +31,4 @@ class FrozenWarframeLCD(DisplayDevice):
         return b'\xAB\xCD' + payload_length.to_bytes(2, 'little')
 
     # Optional: override _encode_image if your device needs a different format
+    
