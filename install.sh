@@ -165,6 +165,13 @@ install_application() {
     mkdir -p "$CONFIG_DIR"
     mkdir -p "$DESKTOP_DIR"
 
+    # Create log directory
+    LOG_DIR="$HOME/.local/share/thermalright-lcd-control/logs"
+    mkdir -p "$LOG_DIR"
+    chmod 755 "$LOG_DIR"
+    touch "$LOG_DIR/error.log"
+    chmod 644 "$LOG_DIR/error.log"
+
     # Copy source files
     log_info "Copying application files to $APP_DIR..."
     cp -r "thermalright_lcd_control" "$APP_DIR/"
