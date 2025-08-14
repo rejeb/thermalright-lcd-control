@@ -145,8 +145,18 @@ class DisplayDevice(ABC):
             raise
 
     def is_device_connected(self):
-        # Placeholder for actual device connection check
-        return True
+        self.logger.debug(f"Checking connection for Device(vid={hex(self.vid)}, pid={hex(self.pid)})")
+        try:
+            device = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+            if device:
+                self.logger.debug(f"Device(vid={hex(self.vid)}, pid={hex(self.pid)}) is connected")
+                return True
+            else:
+                self.logger.debug(f"Device(vid={hex(self.vid)}, pid={hex(self.pid)}) is not connected")
+                return False
+        except Exception as e:
+            self.logger.error(f"Error while checking device connection: {e}")
+            return False
 
     def send_test_command(self):
         # Placeholder for sending a command to the device
