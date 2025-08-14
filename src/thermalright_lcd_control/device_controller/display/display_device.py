@@ -182,6 +182,45 @@ class DisplayDevice(ABC):
         # Placeholder for receiving a response from the device
         return "OK"
 
+    def send_scsi_command(self, command: bytes, data_out: Optional[bytes] = None, data_in_length: int = 0) -> bytes:
+        """
+        Send a SCSI command to the device.
+
+        :param command: The SCSI command as bytes.
+        :param data_out: Optional data to send to the device.
+        :param data_in_length: Expected length of the response data.
+        :return: The response data from the device.
+        """
+        if self.dev is None:
+            raise ValueError(f"{self} not initialized")
+
+        try:
+            self.logger.debug(f"Sending SCSI command: {command.hex()}")
+
+            # Send the command via bulk OUT endpoint
+            self.dev.write(0x02, command)
+
+            # If there's data to send, write it to the device
+            if data_out:
+                self.logger.debug(f"Sending data_out: {data_out.hex()}")
+                self.dev.write(0x02, data_out)
+
+            # If a response is expected, read it from the bulk IN endpoint
+            if data_in_length > 0:
+                self.logger.debug(f"Expecting {data_in_length} bytes of response data")
+                response = self.dev.read(0x81, data_in_length)
+                self.logger.debug(f"Received response: {response.hex()}")
+                return bytes(response)
+
+            return b""
+
+        except usb.core.USBError as e:
+            self.logger.error(f"USBError during SCSI command: {e}", exc_info=True)
+            raise
+        except Exception as e:
+            self.logger.error(f"Unexpected error during SCSI command: {e}", exc_info=True)
+            raise
+
 
 # Subclasses for specific devices
 class DisplayDevice04185303(DisplayDevice):
