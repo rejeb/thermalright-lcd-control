@@ -1,5 +1,6 @@
- SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
+
 import pathlib
 import struct
 import time
@@ -28,6 +29,7 @@ class DisplayDevice(ABC):
         self.last_modified = pathlib.Path(self.config_file).stat().st_mtime_ns
         self.logger = LoggerConfig.setup_service_logger()
         self._build_generator()
+        self.dev = None  # USB device will be initialized later
         self.logger.debug(f"{self} initialized with header: {self.header}")
 
     def __str__(self):
@@ -72,17 +74,29 @@ class DisplayDevice(ABC):
         pass
 
     def write(self, packet: bytes):
-        """Send a packet to the device using USB bulk transfer."""
-        dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+        dev = self.dev
         if dev is None:
+            self.logger.error(f"{self} not found during write()")
             raise ValueError(f"{self} not found")
+
         try:
-            dev.write(1, packet)  # Endpoint 1 assumed; adjust if needed
+            dev.set_configuration()
+            cfg = dev.get_active_configuration()
+            intf = cfg[(0, 0)]
+
+            if dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                dev.detach_kernel_driver(intf.bInterfaceNumber)
+                self.logger.info(f"Detached kernel driver from interface {intf.bInterfaceNumber}")
+
+            usb.util.claim_interface(dev, intf.bInterfaceNumber)
+            self.logger.debug(f"Interface {intf.bInterfaceNumber} claimed")
+
+            dev.write(2, packet)  # EP 2 OUT
         except Exception as e:
             self.logger.error(f"Failed to write packet to {self}: {e}")
 
     def reset(self):
-        dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+        dev = self.dev
         if dev is None:
             raise ValueError(f"{self} not found")
         dev.reset()
@@ -146,6 +160,18 @@ class DisplayDevice04023922(DisplayDevice):
 
     def run(self):
         self.logger.info(f"{self} running")
+        time.sleep(1)  # Give USB stack time to settle
+
+        for attempt in range(10):
+            self.dev = usb.core.find(idVendor=self.vid, idProduct=self.pid)
+            if self.dev is not None:
+                break
+            self.logger.warning(f"{self} not found (attempt {attempt + 1}), retrying...")
+            time.sleep(0.5)
+
+        if self.dev is None:
+            self.logger.error(f"{self} not found during run() after retries")
+            return
 
         while True:
             try:
@@ -163,4 +189,14 @@ class DisplayDevice04023922(DisplayDevice):
             except Exception as e:
                 self.logger.error(f"Error in display run loop: {e}")
                 break
+
+
+DEVICE_CLASSES = {
+    (0x0418, 0x5303): DisplayDevice04185303,
+    (0x0418, 0x5304): DisplayDevice04185304,
+    (0x0416, 0x8001): DisplayDevice04168001,
+    (0x0416, 0x5302): DisplayDevice04165302,
+    (0x0402, 0x3922): DisplayDevice04023922,
+}
+
 
