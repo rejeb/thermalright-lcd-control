@@ -81,11 +81,11 @@ copy_files() {
     chmod +x "$PACKAGE_DIR/uninstall.sh"
 }
 
-# Add log directory to package data
-mkdir -p "pkg/usr/local/share/thermalright-lcd-control/logs"
-chmod 755 "pkg/usr/local/share/thermalright-lcd-control/logs"
+# Create necessary directories
+mkdir -p pkg/DEBIAN
+mkdir -p pkg/usr/local/share/thermalright-lcd-control/logs
 
-# Add post-install script to create user log directory
+# Create post-install script
 cat > pkg/DEBIAN/postinst << 'EOF'
 #!/bin/sh
 set -e
