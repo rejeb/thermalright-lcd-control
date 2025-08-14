@@ -100,38 +100,35 @@ class LoggerConfig:
             return LoggerConfig._create_console_handler()
 
     @classmethod
+    def _get_log_directory(cls):
+        """Get appropriate log directory based on context"""
+        # Try user's home directory first
+        user_log_dir = Path(os.path.expanduser('~/.local/share/thermalright-lcd-control/logs'))
+        if user_log_dir.parent.exists() and os.access(user_log_dir.parent, os.W_OK):
+            return user_log_dir
+        
+        # Fallback to system directory if running as service
+        system_log_dir = Path('/var/log/thermalright-lcd-control')
+        return system_log_dir
+
+    @classmethod
     def _ensure_log_directory(cls):
         try:
-            # Convert to Path object for better path handling
-            log_dir = Path(cls.LOG_DIR).expanduser().resolve()
+            log_dir = cls._get_log_directory()
             log_dir.mkdir(parents=True, exist_ok=True)
             
-            # Create error log file
             error_log = log_dir / cls.ERROR_LOG
             error_log.touch(exist_ok=True)
             
             # Set permissions
-            log_dir.chmod(0o755)  # drwxr-xr-x
-            error_log.chmod(0o644)  # -rw-r--r--
+            log_dir.chmod(0o755)
+            error_log.chmod(0o644)
             
-            print(f"Created log directory: {log_dir}")
-            print(f"Created error log: {error_log}")
+            print(f"Using log directory: {log_dir}")
             return str(error_log)
         except Exception as e:
-            print(f"Failed to create log directory/file: {e}", file=sys.stderr)
+            print(f"Failed to create log directory: {e}", file=sys.stderr)
             return None
-
-    @classmethod
-    def _init_log_dir(cls):
-        try:
-            cls.LOG_DIR.mkdir(parents=True, exist_ok=True)
-            error_log = cls.LOG_DIR / 'error.log'
-            error_log.touch(exist_ok=True)
-            print(f"Log directory created at: {cls.LOG_DIR}")
-            return True
-        except Exception as e:
-            print(f"Failed to create log directory: {e}")
-            return False
 
     @classmethod
     def setup_service_logger(cls):
@@ -211,6 +208,9 @@ def get_service_logger():
 
 def get_gui_logger():
     """Get the LCD control UI logger instance"""
+    return LoggerConfig.setup_gui_logger()
+    """Get the LCD control UI logger instance"""
+    return LoggerConfig.setup_gui_logger()
     return LoggerConfig.setup_gui_logger()
     """Get the LCD control UI logger instance"""
     return LoggerConfig.setup_gui_logger()
