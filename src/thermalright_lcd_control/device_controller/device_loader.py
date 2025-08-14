@@ -1,14 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright © 2025 Rejeb Ben Rejeb
+
 import os
 import yaml
+from .usb_detector import detect_usb_device
 from .hid_detector import detect_hid_device
-from .usb_detector import detect_usb_device  # renamed import
-from ..common.logging_config import get_service_logger
+from thermalright_lcd_control.device_controller.display.display_device import DEVICE_CLASSES
+from thermalright_lcd_control.common.logging_config import get_service_logger
 
 
 def load_device(config_dir: str):
     logger = get_service_logger()
 
-    # Attempt HID detection
+    # Attempt HID detection first
     try:
         device = detect_hid_device(config_dir)
         if device:
@@ -31,11 +35,18 @@ def load_device(config_dir: str):
 
         vid = config["device"]["vid"]
         pid = config["device"]["pid"]
-
         logger.info(f"Loaded VID/PID from config: {vid:04x}:{pid:04x}")
     except Exception as e:
         logger.error(f"Failed to load VID/PID from config: {e}")
         raise
+
+    # Try to instantiate a known DisplayDevice subclass
+    device_class = DEVICE_CLASSES.get((vid, pid))
+    if device_class:
+        logger.info(f"Instantiating device class for VID={hex(vid)}, PID={hex(pid)}")
+        return device_class(config_dir)
+    else:
+        logger.warning(f"No matching DisplayDevice class for VID={hex(vid)}, PID={hex(pid)}")
 
     # Fallback to pyusb detection
     try:
