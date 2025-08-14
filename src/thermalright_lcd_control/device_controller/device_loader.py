@@ -14,6 +14,7 @@ def load_device(config_dir: str):
 
     # Attempt HID detection first
     try:
+        logger.info("Attempting HID detection")
         device = detect_hid_device(config_dir)
         if device:
             logger.info("Device detected via HID")
@@ -59,7 +60,7 @@ def load_device(config_dir: str):
         logger.info(f"Attempting USB detection for VID={hex(vid)}, PID={hex(pid)}")
         device = detect_usb_device(vid, pid, logger)
         if device:
-            logger.info("Device detected via USB (pyusb)")
+            logger.info("Device detected via USB")
             return device
         else:
             logger.warning("No USB-compatible device found")
@@ -67,5 +68,6 @@ def load_device(config_dir: str):
         logger.error(f"USB detection failed: {e}")
         raise
 
-    raise ValueError("No supported device found via HID or USB")
+    logger.error("Device loading failed. No compatible device found.")
+    return None
 

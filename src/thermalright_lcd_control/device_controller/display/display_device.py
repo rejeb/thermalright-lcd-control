@@ -92,24 +92,24 @@ class DisplayDevice(ABC):
             self.logger.debug(f"Claiming interface {intf.bInterfaceNumber}")
             usb.util.claim_interface(dev, intf.bInterfaceNumber)
 
-            # Mass Storage specific initialization
             self.logger.debug(f"Sending packet (size: {len(packet)}) to EP 2 OUT")
             bytes_written = dev.write(0x02, packet)  # EP 2 OUT
             self.logger.debug(f"Written {bytes_written} bytes to device")
 
-            # Try to read response from EP 1 IN
-            try:
-                response = dev.read(0x81, 64, timeout=1000)  # EP 1 IN
-                self.logger.debug(f"Received response: {response.tobytes().hex()}")
-            except usb.core.USBError as e:
-                if e.errno == 110:  # Timeout
-                    self.logger.debug("No response from device (timeout)")
-                else:
-                    raise
+            self.logger.debug("Attempting to read response from EP 1 IN")
+            response = dev.read(0x81, self.chunk_size)  # EP 1 IN
+            self.logger.debug(f"Received response: {response}")
 
-        except Exception as e:
-            self.logger.error(f"Failed to write packet to {self}: {e}")
+        except usb.core.USBError as e:
+            self.logger.error(f"USBError during write operation: {e}")
             raise
+        except Exception as e:
+            self.logger.error(f"Unexpected error during write operation: {e}")
+            raise
+        finally:
+            self.logger.debug(f"Releasing interface {intf.bInterfaceNumber}")
+            usb.util.release_interface(dev, intf.bInterfaceNumber)
+            self.logger.debug("USB device write operation completed")
 
     def reset(self):
         dev = self.dev

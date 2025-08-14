@@ -26,8 +26,14 @@ def detect_usb_device(vid: int, pid: int, logger):
     except (usb.core.USBError, NotImplementedError) as e:
         logger.warning(f"Could not detach kernel driver: {e}")
 
-    dev.set_configuration()
-    logger.info("USB device configured.")
+    try:
+        dev.set_configuration()
+        logger.info("USB device configured.")
+    except usb.core.USBError as e:
+        logger.error(f"Failed to set USB configuration: {e}")
+        raise
+
+    logger.info("USB device successfully detected and configured.")
     return dev
 
 def load_device(config_path=None):
