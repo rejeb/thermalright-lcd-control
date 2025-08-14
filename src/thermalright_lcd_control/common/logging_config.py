@@ -3,6 +3,7 @@
 
 import logging
 import os
+import stat
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -15,6 +16,8 @@ class LoggerConfig:
     GUI_LOG_FILE = "/tmp/thermalright-lcd-control-gui.log"
 
     _logger = None
+    LOG_DIR = os.path.expanduser('~/.local/share/thermalright-lcd-control/logs')
+    ERROR_LOG = 'error.log'
 
     @staticmethod
     def is_development_mode():
@@ -95,6 +98,25 @@ class LoggerConfig:
 
         except (PermissionError, OSError) as e:
             return LoggerConfig._create_console_handler()
+
+    @classmethod
+    def _ensure_log_directory(cls):
+        try:
+            # Create directory with proper permissions
+            Path(cls.LOG_DIR).mkdir(parents=True, exist_ok=True)
+            # Set directory permissions (755)
+            os.chmod(cls.LOG_DIR, stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH)
+            
+            # Create log file if it doesn't exist
+            log_file = os.path.join(cls.LOG_DIR, cls.ERROR_LOG)
+            Path(log_file).touch(exist_ok=True)
+            # Set file permissions (644)
+            os.chmod(log_file, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+            
+            return log_file
+        except Exception as e:
+            print(f"Failed to create log directory/file: {e}")
+            return None
 
     @classmethod
     def setup_service_logger(cls):
