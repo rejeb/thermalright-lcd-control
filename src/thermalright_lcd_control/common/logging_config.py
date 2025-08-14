@@ -14,6 +14,8 @@ class LoggerConfig:
     SERVICE_LOG_FILE = "/var/log/thermalright-lcd-control.log"
     GUI_LOG_FILE = "/tmp/thermalright-lcd-control-gui.log"
 
+    _logger = None
+
     @staticmethod
     def is_development_mode():
         """
@@ -94,9 +96,12 @@ class LoggerConfig:
         except (PermissionError, OSError) as e:
             return LoggerConfig._create_console_handler()
 
-    @staticmethod
-    def setup_service_logger():
+    @classmethod
+    def setup_service_logger(cls):
         """Setup logger for the device controller component"""
+        if cls._logger is not None:
+            return cls._logger
+
         logger = logging.getLogger('thermalright.device_controller')
 
         # Clear any existing handlers
@@ -119,6 +124,22 @@ class LoggerConfig:
         logger.addHandler(handler)
         logger.propagate = False  # Prevent duplicate logs
 
+        # File handler for errors only
+        log_dir = os.path.expanduser('~/.local/share/thermalright-lcd-control/logs')
+        os.makedirs(log_dir, exist_ok=True)
+        error_log = os.path.join(log_dir, 'error.log')
+        
+        file_handler = RotatingFileHandler(
+            error_log,
+            maxBytes=1024*1024,  # 1MB
+            backupCount=3
+        )
+        file_handler.setLevel(logging.ERROR)
+        file_formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s\nTraceback:\n%(exc_info)s')
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+
+        cls._logger = logger
         return logger
 
     @staticmethod
