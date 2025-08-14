@@ -124,7 +124,8 @@ class LoggerConfig:
             log_dir.chmod(0o755)
             error_log.chmod(0o644)
             
-            print(f"Using log directory: {log_dir}")
+            print(f"Using log directory: {log_dir} (permissions: {oct(log_dir.stat().st_mode)})")
+            print(f"Error log file: {error_log} (permissions: {oct(error_log.stat().st_mode)})")
             return str(error_log)
         except Exception as e:
             print(f"Failed to create log directory: {e}", file=sys.stderr)
