@@ -1,5 +1,3 @@
-# SPDX-License-Identifier: Apache-2.0
-# Copyright © 2025 Rejeb Ben Rejeb
 import yaml
 import os
 import logging
@@ -59,4 +57,3 @@ def load_device(config_path=None):
     else:
         logger.error(f"Unknown mode '{mode}' in config.")
         return None
-
