@@ -263,7 +263,11 @@ class DisplayDevice04023922(DisplayDevice):
     def __init__(self, config_dir: str):
         super().__init__(0x0402, 0x3922, 512, 320, 240, config_dir)
 
-    def get_header(self, payload: bytes) -> bytes:
+    def get_header(self) -> bytes:
+        # Called during __init__, return a default header
+        return self.make_header_variant_5(bytes([0x00] * 128))
+
+    def make_header_variant_5(self, payload: bytes) -> bytes:
         magic = 0xA5
         block_count = len(payload) // 64
         remainder = len(payload) % 64
@@ -271,10 +275,10 @@ class DisplayDevice04023922(DisplayDevice):
         return bytes([magic, block_count, remainder, checksum])
 
     def send(self, payload: bytes):
-        header = self.get_header(payload)
+        header = self.make_header_variant_5(payload)
         packet = header + payload
         self.logger.debug(f"Sending packet: {packet.hex()}")
-        self.write(packet)
+        self.write(packet)    
 
     def run(self):
         self.logger.info(f"{self} running")
