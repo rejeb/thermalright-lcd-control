@@ -84,6 +84,11 @@ class DisplayDevice(ABC):
                 self.dev.detach_kernel_driver(intf.bInterfaceNumber)
 
             usb.util.claim_interface(self.dev, intf.bInterfaceNumber)
+
+            # Log available endpoints
+            for endpoint in intf:
+                self.logger.debug(f"Endpoint address: {hex(endpoint.bEndpointAddress)}, attributes: {endpoint.bmAttributes}")
+
             self.logger.info(f"{self} successfully initialized")
             return True
         except usb.core.USBError as e:
@@ -106,13 +111,9 @@ class DisplayDevice(ABC):
             raise ValueError(f"{self} not initialized")
 
         try:
-            self.logger.debug(f"Sending packet (size: {len(packet)}) to EP 2 OUT")
-            bytes_written = self.dev.write(0x02, packet)
+            self.logger.debug(f"Sending packet (size: {len(packet)}) to EP 3 OUT")
+            bytes_written = self.dev.write(0x03, self.report_id + packet)  # Bulk OUT endpoint
             self.logger.debug(f"Written {bytes_written} bytes to device")
-
-            self.logger.debug("Reading response from EP 1 IN")
-            response = self.dev.read(0x81, self.chunk_size)
-            self.logger.debug(f"Received response: {response}")
         except usb.core.USBError as e:
             self.logger.error(f"USBError during write operation: {e}", exc_info=True)
             raise
