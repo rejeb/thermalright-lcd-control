@@ -263,11 +263,18 @@ class DisplayDevice04023922(DisplayDevice):
     def __init__(self, config_dir: str):
         super().__init__(0x0402, 0x3922, 512, 320, 240, config_dir)
 
-    def get_header(self) -> bytes:
-        prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
-        body = struct.pack('<6HIH', 2, 1, 320, 240, 2, 0, 153600, 0)
-        padding = bytes([0x00] * 8)  # Extend to 30 bytes total
-        return prefix + body + padding
+    def make_header_variant_5(self, payload: bytes) -> bytes:
+        magic = 0xA5
+        block_count = len(payload) // 64
+        remainder = len(payload) % 64
+        checksum = sum(payload) % 256
+        return bytes([magic, block_count, remainder, checksum])
+
+    def send(self, payload: bytes):
+        header = self.make_header_variant_5(payload)
+        packet = header + payload
+        self.logger.debug(f"Sending packet: {packet.hex()}")
+        self.write(packet)   
 
     def run(self):
         self.logger.info(f"{self} running")
