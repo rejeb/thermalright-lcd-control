@@ -265,8 +265,8 @@ class DisplayDevice04023922(DisplayDevice):
     Supports multiple frame formats and resolutions.
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config_dir: str):
+        super().__init__(0x0402, 0x3922, 512, 240, 240, config_dir)
         self.supported_formats = {
             57600: ("RGB565", (240, 240)),
             38400: ("GRAY8", (240, 160)),
