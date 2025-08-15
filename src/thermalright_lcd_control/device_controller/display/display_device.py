@@ -260,25 +260,57 @@ class DisplayDevice04165302(DisplayDevice):
 
 
 class DisplayDevice04023922(DisplayDevice):
-    def __init__(self, config_dir: str):
-        super().__init__(0x0402, 0x3922, 512, 320, 240, config_dir)
+    """
+    Vendor-specific USB display device with ID 0402:3922.
+    Supports multiple frame formats and resolutions.
+    """
 
-    def get_header(self) -> bytes:
-        # Called during __init__, return a default header
-        return self.make_header_variant_5(bytes([0x00] * 128))
+    def __init__(self):
+        super().__init__()
+        self.supported_formats = {
+            57600: ("RGB565", (240, 240)),
+            38400: ("GRAY8", (240, 160)),
+            28800: ("GRAY8", (240, 120)),
+        }
 
-    def make_header_variant_5(self, payload: bytes) -> bytes:
-        magic = 0xA5
-        block_count = len(payload) // 64
-        remainder = len(payload) % 64
-        checksum = sum(payload) % 256
-        return bytes([magic, block_count, remainder, checksum])
+    def identify_frame_format(self, payload: bytes):
+        size = len(payload)
+        if size in self.supported_formats:
+            fmt, shape = self.supported_formats[size]
+            return fmt, shape
+        raise ValueError(f"Unknown payload size: {size}")
 
-    def send(self, payload: bytes):
-        header = self.make_header_variant_5(payload)
-        packet = header + payload
-        self.logger.debug(f"Sending packet: {packet.hex()}")
-        self.write(packet)    
+    def decode_frame(self, payload: bytes):
+        fmt, shape = self.identify_frame_format(payload)
+        if fmt == "RGB565":
+            arr = np.frombuffer(payload, dtype=np.uint16).reshape(shape)
+            r = ((arr >> 11) & 0x1F) << 3
+            g = ((arr >> 5) & 0x3F) << 2
+            b = (arr & 0x1F) << 3
+            rgb = np.stack([r, g, b], axis=-1).astype(np.uint8)
+            return Image.fromarray(rgb, "RGB")
+        elif fmt == "GRAY8":
+            arr = np.frombuffer(payload, dtype=np.uint8).reshape(shape)
+            return Image.fromarray(arr)
+        else:
+            raise ValueError(f"Unsupported format: {fmt}")
+
+    def visualize(self, payload: bytes, annotate: bool = False, label: str = ""):
+        img = self.decode_frame(payload)
+        if annotate:
+            draw = ImageDraw.Draw(img.convert("RGB"))
+            font = ImageFont.load_default()
+            draw.text((5, 5), label, fill=(255, 255, 255), font=font)
+        return img
+
+    def entropy(self, payload: bytes):
+        img = self.decode_frame(payload)
+        arr = np.array(img.convert("L")).ravel()
+        hist = np.histogram(arr, bins=256, range=(0, 255))[0]
+        prob = hist / np.sum(hist)
+        prob = prob[prob > 0]
+        return round(-np.sum(prob * np.log2(prob)), 2)
+    
 
     def run(self):
         self.logger.info(f"{self} running")
