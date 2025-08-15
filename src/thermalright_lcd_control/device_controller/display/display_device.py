@@ -154,6 +154,11 @@ class DisplayDevice(ABC):
 
     def run(self):
         self.logger.info(f"{self} running")
+
+        if not self.initialize_device():
+            self.logger.error(f"{self} failed to initialize. Exiting run loop.")
+            return
+
         while True:
             try:
                 img, delay_time = self._get_generator().get_frame_with_duration()
