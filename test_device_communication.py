@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 # Test script for device communication
 
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "src")))
+
+
 import logging
 from thermalright_lcd_control.device_controller.display.display_device import DisplayDevice04023922
 
