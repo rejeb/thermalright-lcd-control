@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
-
-from .display.display_device import load_device
+from .display.device_loader import DeviceLoader
 from ..common.logging_config import get_service_logger
 
 
@@ -10,7 +9,11 @@ def run_service(config_dir: str):
     logger.info("Device controller service started")
 
     try:
-        device = load_device(config_dir)
+        loader = DeviceLoader(config_dir)
+        device = loader.load_device()
+        if device is None:
+            logger.error(f"No device found", exc_info=True)
+            exit(1)
         device.reset()
         device.run()
     except KeyboardInterrupt:

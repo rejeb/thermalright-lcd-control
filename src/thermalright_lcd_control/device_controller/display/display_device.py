@@ -1,12 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 import pathlib
-import struct
 import time
 from abc import abstractmethod, ABC
-from typing import Optional
 
-import hid
 import usb
 from PIL import Image
 
@@ -15,11 +12,12 @@ from .generator import DisplayGenerator
 from ...common.logging_config import LoggerConfig
 
 
-class DisplayDevice(hid.Device, ABC):
+class DisplayDevice(ABC):
     _generator: DisplayGenerator = None
+    dev = None
+    report_id = bytes([0x00])
 
     def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
-        super().__init__(vid, pid)
         self.vid = vid
         self.pid = pid
         self.chunk_size = chunk_size
@@ -51,7 +49,7 @@ class DisplayDevice(hid.Device, ABC):
         else:
             return self._generator
 
-    def _encode_image(self,img: Image) -> bytearray:
+    def _encode_image(self, img: Image) -> bytearray:
         width, height = img.size
 
         coords = [(x, y) for x in range(width) for y in range(height - 1, -1, -1)]
@@ -90,7 +88,7 @@ class DisplayDevice(hid.Device, ABC):
             chunk = img_bytes[i:i + self.chunk_size]
             if len(chunk) < self.chunk_size:
                 chunk += b"\x00" * (self.chunk_size - len(chunk))
-            frame_packets.append(bytes([0x00]) + chunk)
+            frame_packets.append(self.report_id + chunk)
         return frame_packets
 
     def run(self):
@@ -101,52 +99,9 @@ class DisplayDevice(hid.Device, ABC):
             img_bytes = header + self._encode_image(img)
             frame_packets = self._prepare_frame_packets(img_bytes)
             for packet in frame_packets:
-                self.write(packet)
+                self.send_packet(packet)
             time.sleep(delay_time)
 
-
-class DisplayDevice04185304(DisplayDevice):
-    def __init__(self, config_dir: str):
-        super().__init__(0x0418, 0x5304, 512, 480, 480, config_dir)
-
-    def get_header(self) -> bytes:
-        return struct.pack('<BBHHH',
-                           0x69,
-                           0x88,
-                           480,
-                           480,
-                           0
-                           )
-
-
-class DisplayDevice04165302(DisplayDevice):
-    def __init__(self, config_dir: str):
-        super().__init__(0x0416, 0x5302, 512, 320, 240, config_dir)
-
-    def get_header(self) -> bytes:
-        prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
-        body = struct.pack(
-            '<6HIH',
-            2,
-            1,
-            320,
-            240,
-            2,
-            0,
-            153600,
-            0
-        )
-        return prefix + body
-
-
-def load_device(config_dir: str) -> Optional[DisplayDevice]:
-    try:
-        for device in hid.enumerate():
-            if device['vendor_id'] == 0x0416:
-                if device['product_id'] == 0x5302:
-                    return DisplayDevice04165302(config_dir)
-            elif device['vendor_id'] == 0x0418:
-                if device['product_id'] == 0x5304:
-                    return DisplayDevice04185304(config_dir)
-    except Exception as e:
-        raise Exception(f"No supported device found: {e}") from e
+    @abstractmethod
+    def send_packet(self, packet: bytes):
+        pass
