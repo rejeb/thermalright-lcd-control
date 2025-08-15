@@ -5,6 +5,7 @@ import pathlib
 import struct
 from abc import abstractmethod, ABC
 from typing import Optional
+import time
 
 import usb
 import numpy as np
@@ -150,6 +151,25 @@ class DisplayDevice(ABC):
                 chunk += b"\x00" * (self.chunk_size - len(chunk))
             frame_packets.append(bytes([0x00]) + chunk)
         return frame_packets
+
+    def run(self):
+        self.logger.info(f"{self} running")
+        while True:
+            try:
+                img, delay_time = self._get_generator().get_frame_with_duration()
+                header = self.get_header()
+                img_bytes = header + self._encode_image(img)
+                frame_packets = self._prepare_frame_packets(img_bytes)
+
+                for packet in frame_packets:
+                    self.logger.debug(f"Sending packet of size {len(packet)}")
+                    self.write(packet)
+
+                time.sleep(delay_time)
+
+            except Exception as e:
+                self.logger.error(f"Error in display run loop: {e}")
+                break
 
 # Subclasses for specific devices
 class DisplayDevice04185303(DisplayDevice):
