@@ -263,9 +263,9 @@ class DisplayDevice04023922(DisplayDevice):
     def __init__(self, config_dir: str):
         super().__init__(0x0402, 0x3992, 512, 320, 240, config_dir)
 
-    def get_header(self) -> bytes:
-        prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
-        body = struct.pack('<6HIH', 2, 1, 320, 240, 2, 0, 153600, 0)
+    def get_header_v1() -> bytes:
+        prefix = bytes([0x55, 0xAA, 0x00, 0x01])
+        body = struct.pack('<6HIH', 2, 1, 320, 240, 2, 0, 512, 0)
         return prefix + body
 
     def run(self):
