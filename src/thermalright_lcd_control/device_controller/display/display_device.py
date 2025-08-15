@@ -206,60 +206,31 @@ class DisplayDevice04165302(DisplayDevice):
 
 class DisplayDevice04023922(DisplayDevice):
     def __init__(self, config_dir: str):
-        super().__init__(0x0402, 0x3922, 512, 240, 240, config_dir)
-        self.supported_formats = {
-            57600: ("RGB565", (240, 240)),
-            38400: ("GRAY8", (240, 160)),
-            28800: ("GRAY8", (240, 120)),
-        }
+        super().__init__(0x0402, 0x3922, 512, 320, 240, config_dir)
+        self.report_id = bytes([0x00])  # Default HID report ID
 
     def get_header(self) -> bytes:
-        prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
-        body = struct.pack('<6HIH', 2, 1, 240, 240, 2, 0, 57600, 0)
-        return prefix + body
+        # Static 4-byte header as observed in packet captures
+        return bytes([0x00, 0x00, 0x00, 0x00])
 
-    def identify_frame_format(self, payload: bytes):
-        size = len(payload)
-        if size in self.supported_formats:
-            return self.supported_formats[size]
-        raise ValueError(f"Unknown payload size: {size}")
+    def _encode_image(self, image: Image.Image) -> bytes:
+        # Convert image to 8-bit grayscale and encode
+        image = image.resize((self.width, self.height)).convert("L")
+        arr = np.array(image, dtype=np.uint8)
+        pixel_data = arr.flatten().tobytes()
+        return self.get_header() + pixel_data
 
-    def decode_frame(self, payload: bytes):
-        fmt, shape = self.identify_frame_format(payload)
-        if fmt == "RGB565":
-            arr = np.frombuffer(payload, dtype=np.uint16).reshape(shape)
-            r = ((arr >> 11) & 0x1F) << 3
-            g = ((arr >> 5) & 0x3F) << 2
-            b = (arr & 0x1F) << 3
-            rgb = np.stack([r, g, b], axis=-1).astype(np.uint8)
-            return Image.fromarray(rgb, "RGB")
-        elif fmt == "GRAY8":
-            arr = np.frombuffer(payload, dtype=np.uint8).reshape(shape)
-            return Image.fromarray(arr)
-        else:
-            raise ValueError(f"Unsupported format: {fmt}")
+    def write(self, packet: bytes):
+        if self.dev is None:
+            raise ValueError(f"{self} not initialized")
 
-    def visualize(self, payload: bytes, annotate: bool = False, label: str = ""):
-        img = self.decode_frame(payload)
-        if annotate:
-            draw = ImageDraw.Draw(img.convert("RGB"))
-            font = ImageFont.load_default()
-            draw.text((5, 5), label, fill=(255, 255, 255), font=font)
-        return img
-
-    def entropy(self, payload: bytes):
-        img = self.decode_frame(payload)
-        arr = np.array(img.convert("L")).ravel()
-        hist = np.histogram(arr, bins=256, range=(0, 255))[0]
-        prob = hist / np.sum(hist)
-        prob = prob[prob > 0]
-        return round(-np.sum(prob * np.log2(prob)), 2)
-
-
-DEVICE_CLASSES = {
-    (0x0418, 0x5303): DisplayDevice04185303,
-    (0x0418, 0x5304): DisplayDevice04185304,
-    (0x0416, 0x8001): DisplayDevice04168001,
-    (0x0416, 0x5302): DisplayDevice04165302,
-    (0x0402, 0x3922): DisplayDevice04023922,
-}
+        try:
+            self.logger.debug(f"Sending packet (size: {len(packet)}) to interrupt endpoint")
+            bytes_written = self.dev.write(0x01, self.report_id + packet)  # Interrupt OUT endpoint
+            self.logger.debug(f"Written {bytes_written} bytes to device")
+        except usb.core.USBError as e:
+            self.logger.error(f"USBError during write operation: {e}", exc_info=True)
+            raise
+        except Exception as e:
+            self.logger.error(f"Unexpected error during write operation: {e}", exc_info=True)
+            raise
