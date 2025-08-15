@@ -40,12 +40,14 @@ def main():
     except Exception as e:
         logger.error(f"Failed to send test command: {e}")
 
-    # Test SCSI command with retry mechanism
+    # Test SCSI command with retry mechanism and simpler command
     max_retries = 3
     for attempt in range(max_retries):
         try:
             logger.info(f"Sending SCSI command (Attempt {attempt + 1}/{max_retries})...")
-            command = bytes([0x12, 0x34, 0x56, 0x78])  # Example command
+            # Simpler SCSI command for testing
+            command = bytes([0x00, 0x00, 0x00, 0x00])  # Simpler command
+            logger.debug(f"SCSI command payload: {command.hex()}")
             response = device.send_scsi_command(command, data_in_length=16)
             logger.info(f"SCSI command response: {response.hex()}")
             break
