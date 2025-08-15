@@ -53,24 +53,15 @@ class DisplayDevice(ABC):
         else:
             return self._generator
 
-    def _encode_image(self, img: Image) -> bytearray:
-        width, height = img.size
-        pixels = np.array(img.convert("RGB")).reshape((height, width, 3))
-        r = (pixels[:, :, 0] & 0xF8) << 8
-        g = (pixels[:, :, 1] & 0xFC) << 3
-        b = (pixels[:, :, 2] >> 3)
-        val565 = r | g | b
-        lo = val565 & 0xFF
-        hi = (val565 >> 8) & 0xFF
-        out = bytearray()
-
-        for i in range(width * height):
-            if i % height == 0:
-                out.extend((0x00, 0x00))
-            else:
-                out.extend((lo.flat[i], hi.flat[i]))
-
-        return out
+    def _encode_image(self, image: Image.Image) -> bytes:
+        image = image.resize((self.width, self.height)).convert("RGB")
+        arr = np.array(image)
+        r = (arr[..., 0] >> 3).astype(np.uint16)
+        g = (arr[..., 1] >> 2).astype(np.uint16)
+        b = (arr[..., 2] >> 3).astype(np.uint16)
+        rgb565 = (r << 11) | (g << 5) | b
+        pixel_data = rgb565.flatten().tobytes()
+        return self.get_header() + pixel_data
 
     @abstractmethod
     def get_header(self, *args, **kwargs) -> bytes:
