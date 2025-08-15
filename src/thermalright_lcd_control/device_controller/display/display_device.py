@@ -264,9 +264,10 @@ class DisplayDevice04023922(DisplayDevice):
         super().__init__(0x0402, 0x3992, 512, 320, 240, config_dir)
 
     def get_header(self) -> bytes:
-        prefix = bytes([0x88, 0x69, 0x00, 0x00])
-        body = struct.pack('>6HIH', 2, 1, 320, 240, 2, 0, 153600, 0)
-        return prefix + body
+        prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
+        body = struct.pack('<6HIH', 2, 1, 320, 240, 2, 0, 153600, 0)
+        padding = bytes([0x00] * 8)  # Extend to 30 bytes total
+        return prefix + body + padding
 
     def run(self):
         self.logger.info(f"{self} running")
