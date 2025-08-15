@@ -261,7 +261,7 @@ class DisplayDevice04165302(DisplayDevice):
 
 class DisplayDevice04023922(DisplayDevice):
     def __init__(self, config_dir: str):
-        super().__init__(0x0402, 0x3992, 512, 320, 240, config_dir)
+        super().__init__(0x0402, 0x3922, 512, 320, 240, config_dir)
 
     def get_header(self) -> bytes:
         prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
@@ -311,6 +311,7 @@ DEVICE_CLASSES = {
     (0x0416, 0x8001): DisplayDevice04168001,
     (0x0416, 0x5302): DisplayDevice04165302,
     (0x0402, 0x3922): DisplayDevice04023922,
+
 }
 
 
