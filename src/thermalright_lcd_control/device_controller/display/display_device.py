@@ -234,3 +234,11 @@ class DisplayDevice04023922(DisplayDevice):
         except Exception as e:
             self.logger.error(f"Unexpected error during write operation: {e}", exc_info=True)
             raise
+
+DEVICE_CLASSES = {
+    (0x0418, 0x5303): DisplayDevice04185303,
+    (0x0418, 0x5304): DisplayDevice04185304,
+    (0x0416, 0x8001): DisplayDevice04168001,
+    (0x0416, 0x5302): DisplayDevice04165302,
+    (0x0402, 0x3922): DisplayDevice04023922,
+}
