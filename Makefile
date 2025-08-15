@@ -100,9 +100,12 @@ build-tar-gz: prepare-dist
 	@echo "TAR.GZ package created successfully!"
 
 clean:
-	rm -rf $(DIST_DIR)
-	rm -rf rpmbuild
-	rm -rf build
+	rm -rf build/
+	rm -rf dist/
+	rm -rf *.egg-info
+	rm -rf ~/.local/share/thermalright-lcd-control/logs
+	find . -type d -name __pycache__ -exec rm -r {} +
+	find . -type f -name "*.pyc" -delete
 
 # Build both packages
 build-all: clean build-fpm-deb build-fpm-rpm build-tar-gz

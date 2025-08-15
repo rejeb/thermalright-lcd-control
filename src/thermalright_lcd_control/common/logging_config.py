@@ -3,6 +3,7 @@
 
 import logging
 import os
+import stat
 import sys
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
@@ -13,6 +14,10 @@ class LoggerConfig:
 
     SERVICE_LOG_FILE = "/var/log/thermalright-lcd-control.log"
     GUI_LOG_FILE = "/tmp/thermalright-lcd-control-gui.log"
+
+    _logger = None
+    LOG_DIR = os.path.expanduser('~/.local/share/thermalright-lcd-control/logs')
+    ERROR_LOG = 'error.log'
 
     @staticmethod
     def is_development_mode():
@@ -94,31 +99,69 @@ class LoggerConfig:
         except (PermissionError, OSError) as e:
             return LoggerConfig._create_console_handler()
 
-    @staticmethod
-    def setup_service_logger():
-        """Setup logger for the device controller component"""
+    @classmethod
+    def _get_log_directory(cls):
+        """Determine the log directory."""
+        # Use explicit environment variable if set
+        env_dir = os.getenv('THERMALRIGHT_LOG_DIR')
+        if env_dir:
+            return Path(env_dir).expanduser()
+
+        # Fallback to $HOME/.local/share/thermalright-lcd-control/logs
+        home_dir = os.getenv('HOME', str(Path.home()))
+        return Path(home_dir) / '.local' / 'share' / 'thermalright-lcd-control' / 'logs'
+
+    @classmethod
+    def _ensure_log_directory(cls):
+        """Ensure the log directory and error log file exist."""
+        try:
+            log_dir = cls._get_log_directory()
+            log_dir.mkdir(parents=True, exist_ok=True)
+
+            error_log = log_dir / cls.ERROR_LOG
+            error_log.touch(exist_ok=True)
+
+            # Set permissions
+            log_dir.chmod(0o755)
+            error_log.chmod(0o644)
+
+            print(f"[thermalright] Using log directory: {log_dir}", file=sys.stderr)
+            print(f"[thermalright] Error log file: {error_log}", file=sys.stderr)
+            return str(error_log)
+        except Exception as e:
+            print(f"[thermalright] Failed to create log directory: {e}", file=sys.stderr)
+            return None
+
+    @classmethod
+    def setup_service_logger(cls):
+        """Set up the logger for the service."""
+        error_log_path = cls._ensure_log_directory()
+
         logger = logging.getLogger('thermalright.device_controller')
-
-        # Clear any existing handlers
         logger.handlers.clear()
+        logger.setLevel(logging.DEBUG)
 
-        # Set log level
-        log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
-        logger.setLevel(getattr(logging, log_level, logging.INFO))
+        # Console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+        console_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s'))
+        logger.addHandler(console_handler)
 
-        if LoggerConfig.is_development_mode():
-            # Development mode: console output
-            handler = LoggerConfig._create_console_handler()
-            logger.info("Device controller logger configured for development mode (console)")
-        else:
-            # Production mode: file logging
-            handler = LoggerConfig._create_file_handler(LoggerConfig.SERVICE_LOG_FILE)
-            logger.info(
-                f"Device controller logger configured for production mode (file: {LoggerConfig.SERVICE_LOG_FILE})")
+        # File handler for error logs
+        if error_log_path:
+            try:
+                file_handler = RotatingFileHandler(
+                    error_log_path,
+                    maxBytes=10 * 1024 * 1024,  # 10MB
+                    backupCount=5
+                )
+                file_handler.setLevel(logging.ERROR)
+                file_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s\n%(exc_info)s'))
+                logger.addHandler(file_handler)
+            except Exception as e:
+                logger.error(f"[thermalright] Failed to add file handler: {e}")
 
-        logger.addHandler(handler)
-        logger.propagate = False  # Prevent duplicate logs
-
+        logger.propagate = False
         return logger
 
     @staticmethod
@@ -154,5 +197,10 @@ def get_service_logger():
 
 
 def get_gui_logger():
+    """Get the LCD control UI logger instance"""
+    return LoggerConfig.setup_gui_logger()
+    """Get the LCD control UI logger instance"""
+    return LoggerConfig.setup_gui_logger()
+    return LoggerConfig.setup_gui_logger()
     """Get the LCD control UI logger instance"""
     return LoggerConfig.setup_gui_logger()

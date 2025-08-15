@@ -46,15 +46,15 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+    echo -e "${GREEN}[INFO] $(date '+%Y-%m-%d %H:%M:%S')${NC} $1"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+    echo -e "${YELLOW}[WARN] $(date '+%Y-%m-%d %H:%M:%S')${NC} $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[ERROR] $(date '+%Y-%m-%d %H:%M:%S')${NC} $1"
 }
 
 check_sudo() {
@@ -164,6 +164,13 @@ install_application() {
     mkdir -p "$BIN_DIR"
     mkdir -p "$CONFIG_DIR"
     mkdir -p "$DESKTOP_DIR"
+
+    # Create log directory
+    LOG_DIR="$HOME/.local/share/thermalright-lcd-control/logs"
+    mkdir -p "$LOG_DIR"
+    chmod 755 "$LOG_DIR"
+    touch "$LOG_DIR/error.log"
+    chmod 644 "$LOG_DIR/error.log"
 
     # Copy source files
     log_info "Copying application files to $APP_DIR..."

@@ -2,6 +2,9 @@
 
 A Linux application for controlling Thermalright LCD displays with an intuitive graphical interface.
 
+#### Currently not working - The service will start, USB and HID detection is now working with my device 0402:3922 ALi Corp. Xsail being detected, loaded and initalized but still unable to control it. The GUI also works but changes are not being sent to the device.
+
+
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
 
@@ -37,6 +40,7 @@ and added the option to select a collection of images to cycle through on the di
 
 | VID:PID   | Tested |
 |-----------|--------|
+| 0402:3922 | ???    |
 | 0416:5302 | Yes    |
 | 0418:5304 | No     |
 
