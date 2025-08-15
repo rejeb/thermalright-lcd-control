@@ -32,6 +32,20 @@ def main():
 
     logger.info("Device is connected.")
 
+    # Verify endpoint communication
+    try:
+        logger.info("Testing basic endpoint communication...")
+        test_payload = bytes([0x01, 0x02, 0x03, 0x04])
+        logger.debug(f"Sending test payload to Bulk OUT endpoint: {test_payload.hex()}")
+        device.write(test_payload)
+        logger.info("Test payload sent successfully.")
+
+        logger.debug("Attempting to read response from Bulk IN endpoint...")
+        response = device.dev.read(0x81, 16)  # Read 16 bytes from Bulk IN endpoint
+        logger.info(f"Response from Bulk IN endpoint: {response.hex()}")
+    except Exception as e:
+        logger.error(f"Endpoint communication test failed: {e}")
+
     # Send a test command
     try:
         logger.info("Sending test command...")
