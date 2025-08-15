@@ -273,6 +273,14 @@ class DisplayDevice04023922(DisplayDevice):
             28800: ("GRAY8", (240, 120)),
         }
 
+    def get_header(self) -> bytes:
+        """
+        Returns the header specific to DisplayDevice04023922.
+        """
+        prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
+        body = struct.pack('<6HIH', 2, 1, 240, 240, 2, 0, 57600, 0)
+        return prefix + body
+
     def identify_frame_format(self, payload: bytes):
         size = len(payload)
         if size in self.supported_formats:
