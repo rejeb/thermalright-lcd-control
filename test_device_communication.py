@@ -21,6 +21,10 @@ def main():
     logger.info("Initializing device...")
     device = DisplayDevice04023922(config_dir)
 
+    # Run the device to ensure proper initialization
+    logger.info("Running device initialization...")
+    device.run()
+
     # Check if the device is connected
     if not device.is_device_connected():
         logger.error("Device is not connected.")
