@@ -116,7 +116,6 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
     
 4. **Install** application:
    ```bash
-   ```bash
    cd /thermalright-lcd-control
    
    sudo ./install.sh

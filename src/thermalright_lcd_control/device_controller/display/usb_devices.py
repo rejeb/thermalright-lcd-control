@@ -24,15 +24,5 @@ class UsbDevice(DisplayDevice, ABC):
     def send_packet(self, packet: bytes):
         """Send packet to device"""
         # Implement your own logic here to send packet to device
+        # TODO implement logic for usb devices
         self.dev.write(packet)
-
-
-class DisplayDevice04023922(UsbDevice):
-    def __init__(self, config_dir: str):
-        super().__init__(0x0402, 0x3922, 512, 320, 240, config_dir)
-        # change report_id value if different from bytes([0x00]), this byte is appended to every packet.
-        # self.report_id = "new value"
-
-    def get_header(self) -> bytes:
-        # Implement your own logic here to get header bytes
-        return bytes([0x00, 0x00, 0x00, 0x00])

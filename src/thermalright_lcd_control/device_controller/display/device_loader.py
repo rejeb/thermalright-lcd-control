@@ -5,12 +5,11 @@ import usb.util
 
 from .display_device import DisplayDevice
 from .hid_devices import DisplayDevice04185304, DisplayDevice04165302
-from .usb_devices import DisplayDevice04023922
 
 SUPPORTED_DEVICES = [
     (0x0418, 0x5304, DisplayDevice04185304),
-    (0x0402, 0x3922, DisplayDevice04023922),
     (0x0416, 0x5302, DisplayDevice04165302),
+    # (vid, pid, Your new device class here ),
 ]
 
 
