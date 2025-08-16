@@ -53,11 +53,14 @@ Save your configuration and make sure that if you restart the software, it will 
 You need to run this command to make wirehsark reading usb packets.
 
 ```bash
-sudo modprobe usbmon
+
+  sudo modprobe usbmon
+
 ```
 
 Use lsusb command to find out the usb Bus id and device id. Something like this:
-![img.png](img.png)
+
+![lsub](lsusb.png)
 
 In my case, the Bus id is 3 and the device id is 4.
 
@@ -66,7 +69,7 @@ Run wireshark with sudo, when it opens, select usbmon{Bus id}. In my case, it is
 To find the packets sent to the device, you need to use this filter to have the packets you want:
 
 ```
-usb.device_address == {device id} && usb.transfer_type == 0x01 && usb.endpoint_address == 0x02 && usb.src == "host" 
+    usb.device_address == {device id} && usb.transfer_type == 0x01 && usb.endpoint_address == 0x02 && usb.src == "host" 
 ```
 
 - usb.device_addressm: The device id, in my case 4.
@@ -87,7 +90,8 @@ And try to find the correct value for the one that does not work. To do this:
   Filter" -> "...and Selected".
 
 In windows VM, keep the software running and disable the display usb from USB settings of virtualBox here:
-![img_1.png](img_1.png)
+
+![disable_usb.png](disable_usb.png)
 
 Then go back to wireshark and restart the capture. If you are asked to save just select "Continue without saving".
 
@@ -107,7 +111,9 @@ wireshark file into simple text file in hexadeciamal format.
 On terminal run this command:
 
 ```bash
-tshark -r /path-to-capture/yourcapturefile.pcapng -T fields -e usb.capdata > output.txt
+
+  tshark -r /path-to-capture/yourcapturefile.pcapng -T fields -e usb.capdata > output.txt
+  
 ```
 
 In fields section, there is two possible values (or at least the ones that I've dealing with):

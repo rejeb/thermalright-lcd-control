@@ -174,27 +174,8 @@ sudo systemctl stop thermalright-lcd-control.service
 
 ## Add new device
 
-While this application is made by reverse engineering Thermalrigth application.
-This application is compatible with all USB display devices supporting communication through an HID interface.
-To add a new device you need to:
+In [HOWTO.md](doc/HOWTO.md) I detail all the steps I gone through to find out how myy device works and all steps to add a new device.
 
-- Identify how images are encoded
-- Header value or logic used to generate it (for Thermalright devices, each image sent to the device includes a header).
-- The size of each paquet sent to the device.
-- The display resolution
-  And then:
-    - Add a new device implementation
-      in [display_device.py](src/thermalright_lcd_control/device_controller/display/display_device.py) that extends
-      `DisplayDevice`.
-    - Override method `_encode_image` to implement the specific device encoding logic and `get_header` for header value.
-    - Add device creation in `load_device`.
-    - Add device informations in [gui_config.yaml](resources/gui_config.yaml)
-- Add a new theme config file in `resources/config/config_{width}{height}.yaml` if screen resolution is not already
-  present in this folder.
-- Add a new folder in `resources/themes/foregrounds` named `{width}{height}` if theme resolution is not already present
-  in this folder and add foregrounds images.
-- Add a new folder in `resources/themes/preset` named `{width}{height}` if theme resolution is not already present in
-  this folder and add preconfigured themes.
 
 ## License
 
