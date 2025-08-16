@@ -148,6 +148,7 @@ For naming class please use the convention in the `new_device_example.py`, pleas
 product name because the same VID/PID can be used in multiple products.
 
 You're free to add new python file for the device or :
+
 - Add it in `hid_devices.py` file, if the device uses hid interface.
 - Add it in `usb_devices.py` file, if the device uses usb interface.
 
@@ -164,7 +165,7 @@ Update the config file, replace `/usr/share/thermalright-lcd-control` with  `./r
 
 If you added a new file, disable foreground by updating property `foreground.enabled` to `false` in the config file.
 
-Later you can create a folder under `resources/themes/forgrounds/{width}{height}` and add forgrounds suited for your
+Later you can create a folder under `resources/themes/forgrounds/{width}{height}` and add foregrounds suited for your
 screen resolution.
 
 Make sure you stopped the windows VM and then run the bash script `run_service.sh` sudo to start the application.
@@ -212,3 +213,30 @@ To do that, you need to add a new device in `gui_config.yaml` file, under `suppo
 
 I deliberately avoided putting a product name like `Frozen Wareframe` because the same device can be used in multiple
 products, and therefore the concept of a product name loses all meaning.
+
+# Add foreground images for the new device
+
+If your device resolution does not match any of the pre-configured foregrounds, you can create a new folder under
+`resources/themes/forgrounds/{width}{height}` and add foregrounds suited for your screen resolution.
+
+You can get the ones under the official product software. For those already copied here, I used the ones under
+`TRCCAPEN\Data\USBLCD\Web`.
+
+Foregrounds are files under folders `zt*`, pick the one that matches your screen resolution. The folders contain
+subfolders with the foreground image a config file and a preview of the theme. Just pick the png files and copy them
+under `resources/themes/forgrounds/{width}{height}`.
+
+# Add a new theme
+
+Last step is to run the gui using the bash script `run_gui.sh` and configure a theme and save it.
+
+The config file will be saved in `resources/themes/presets/{width}{height}/`.
+
+Copy that file to `resources/config/` and rename it to `config_{width}{height}.yaml`. 
+Open the file and change the`resource/` to `/usr/share/thermalright-lcd-control/`.
+
+This theme will be used as default theme for new installations.
+
+# Conclusion
+
+That's it, now application is ready to be packaged and installed.

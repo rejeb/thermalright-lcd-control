@@ -95,24 +95,26 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
    sudo zypper install /tmp/thermalright-lcd-control-1.1.1-1.noarch.rpm
    ```
 
-### tar.gz Installation
+### Install using Tar.gz archive
 
-1. **Download** the `.tar.gz` package:
-   ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control-1.1.1.tar.gz -P /tmp/
-   ```
-2. **Untar** the archive file:
-   ```bash
-   cd /tmp
-   
-   tar -xvf thermalright-lcd-control-1.1.1.tar.gz
-   ```
-3. **Check** for required dependencies:
+1. **Check** for required dependencies:
    /!\ Make sure you have these required dependencies installed:
     - python3
     - python3-pip
     - python3-venv
     - libhidapi-* or hidapi depending on your distribution
+
+2. **Download** the `.tar.gz` package:
+   ```bash
+   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control-1.1.1.tar.gz -P /tmp/
+   ```
+   
+3. **Untar** the archive file:
+   ```bash
+   cd /tmp
+   
+   tar -xvf thermalright-lcd-control-1.1.1.tar.gz
+   ```
     
 4. **Install** application:
    ```bash
