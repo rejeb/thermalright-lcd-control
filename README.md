@@ -35,10 +35,11 @@ and added the option to select a collection of images to cycle through on the di
 
 ## Supported devices
 
-| VID:PID   | Tested |
-|-----------|--------|
-| 0416:5302 | Yes    |
-| 0418:5304 | No     |
+| VID:PID      |
+|--------------|
+| 0416:5302    |
+| 0418:5304    |
+| 87AD:70DB    |
 
 ## Installation
 
