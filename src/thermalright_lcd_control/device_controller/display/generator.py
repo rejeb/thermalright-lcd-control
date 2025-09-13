@@ -2,6 +2,7 @@
 # Copyright © 2025 Rejeb Ben Rejeb
 
 import os
+import time
 from typing import Dict, Any, Tuple
 
 from PIL import Image, ImageDraw
@@ -19,7 +20,7 @@ class DisplayGenerator:
     def __init__(self, config: DisplayConfig):
         self.config = config
         self.logger = self.logger = LoggerConfig.setup_service_logger()
-
+        self.refresh_interval = 0.01
         # Initialize components
         self.frame_manager = FrameManager(config)
         self.text_renderer = TextRenderer(config)  # Pass config for global font
@@ -52,7 +53,7 @@ class DisplayGenerator:
             self.logger.warning(f"Cannot load foreground image: {e}")
             return background
 
-    def generate_frame_with_metrics(self,metrics:dict) -> Image.Image:
+    def generate_frame_with_metrics(self, metrics: dict) -> Image.Image:
         """
         Generate a complete frame with all elements and real-time metrics
         """
@@ -65,8 +66,6 @@ class DisplayGenerator:
         # Create drawing object
         draw = ImageDraw.Draw(result)
 
-
-
         # Draw metrics
         self.text_renderer.render_metrics(draw, metrics, self.config.metrics_configs)
 
@@ -76,59 +75,29 @@ class DisplayGenerator:
         # Draw time (HH:MM format)
         self.text_renderer.render_time(draw, self.config.time_config)
 
-        return result.convert('RGB')
+        convert = result.convert('RGB')
+
+        return convert
 
     def generate_frame(self) -> Image.Image:
         # Get current real-time metrics
         metrics = self.frame_manager.get_current_metrics()
-
         return self.generate_frame_with_metrics(metrics)
 
     def get_frame_with_duration(self) -> Tuple[Image, float]:
         """
         Generate a complete frame and return it with its display duration
-        
+
         Returns:
             Tuple[Image.Image, float]: (generated_image, display_duration_seconds)
         """
         # Generate the complete frame
         frame = self.generate_frame()
-
-        # Get the display duration from frame manager
-        _, duration = self.frame_manager.get_current_frame_info()
-
-        return frame, duration
-
-    def get_current_frame_info(self) -> Tuple[int, float]:
-        """
-        Get information about the current background frame
-        
-        Returns:
-            Tuple[int, float]: (frame_index, display_duration)
-        """
-        return self.frame_manager.get_current_frame_info()
+        return frame, self.refresh_interval
 
     def get_current_metrics(self) -> Dict[str, Any]:
         """Get current metrics"""
         return self.frame_manager.get_current_metrics()
-
-    def save_frame(self, output_path: str):
-        """Generate and save a frame"""
-        frame = self.generate_frame()
-        frame.save(output_path)
-        self.logger.debug(f"Frame saved to: {output_path}")
-
-    def save_frame_with_duration(self, output_path: str) -> float:
-        """
-        Generate and save a frame, returning its display duration
-        
-        Returns:
-            float: Display duration in seconds
-        """
-        frame, duration = self.get_frame_with_duration()
-        frame.save(output_path)
-        self.logger.debug(f"Frame saved to: {output_path} (duration: {duration}s)")
-        return duration
 
     @async_background
     def cleanup(self):

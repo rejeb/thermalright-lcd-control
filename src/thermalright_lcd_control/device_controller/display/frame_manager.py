@@ -2,7 +2,6 @@
 # Copyright © 2025 Rejeb Ben Rejeb
 
 import glob
-import logging
 import os
 import threading
 import time
@@ -13,6 +12,7 @@ from PIL import Image, ImageSequence
 from .config import BackgroundType, DisplayConfig
 from ..metrics.cpu_metrics import CpuMetrics
 from ..metrics.gpu_metrics import GpuMetrics
+from ...common.logging_config import get_service_logger
 
 # Try to import OpenCV for video support
 try:
@@ -31,19 +31,18 @@ class FrameManager:
 
     def __init__(self, config: DisplayConfig):
         self.config = config
-        self.logger = logging.getLogger('thermalright.display.frame_manager')
+        self.logger = get_service_logger()
 
         # Variables for managing backgrounds
         self.current_frame_index = 0
         self.background_frames = []
-        self.video_capture = None
-        self.image_collection = []
-        self.frame_duration = 1.0  # Default duration
+        self.gif_durations = []
+        self.frame_duration = 1.0
         self.frame_start_time = 0
         self.metrics_thread = None
         self.metrics_running = False
         self.metrics_lock = threading.Lock()
-        if len(config.metrics_configs) != 0  :
+        if len(config.metrics_configs) != 0:
             # Initialize metrics collectors
             self.cpu_metrics = CpuMetrics()
             self.gpu_metrics = GpuMetrics()
@@ -55,10 +54,6 @@ class FrameManager:
             self.cpu_metrics = None
             self.gpu_metrics = None
             self.current_metrics = {}
-
-
-
-
 
         # Load background
         self._load_background()
@@ -104,16 +99,20 @@ class FrameManager:
             self.logger.error(f"Error loading background: {e}")
             raise
 
-    def _load_static_image(self):
+    def _load_static_image(self) -> None:
         """Load a static image"""
         if not os.path.exists(self.config.background_path):
             raise FileNotFoundError(f"Background image not found: {self.config.background_path}")
 
         image = Image.open(self.config.background_path)
+        image = self._resize_image(image)
+        self.background_frames = [image]
+
+    def _resize_image(self, image: Image.Image) -> Image.Image:
         image = image.resize((self.config.output_width, self.config.output_height), Image.Resampling.LANCZOS)
         if image.mode != 'RGBA':
             image = image.convert('RGBA')
-        self.background_frames = [image]
+        return image
 
     def _load_gif(self):
         """Load an animated GIF and retrieve duration from metadata"""
@@ -121,24 +120,19 @@ class FrameManager:
             raise FileNotFoundError(f"Background GIF not found: {self.config.background_path}")
 
         gif = Image.open(self.config.background_path)
-        self.background_frames = []
 
+        self.background_frames = []
+        i = 0
         # Extract all frames from GIF
         for frame in ImageSequence.Iterator(gif):
+            gif_frame_duration = self._gif_duration(frame)
+            self.logger.info(f"Extracting GIF duration from metadata... {gif_frame_duration}")
             frame_copy = frame.copy()
-            frame_copy = frame_copy.resize((self.config.output_width, self.config.output_height),
-                                           Image.Resampling.LANCZOS)
-            if frame_copy.mode != 'RGBA':
-                frame_copy = frame_copy.convert('RGBA')
+            frame_copy = self._resize_image(frame_copy)
             self.background_frames.append(frame_copy)
+            self.gif_durations.append(gif_frame_duration)
 
-        # Get duration from GIF metadata
-        try:
-            self.frame_duration = gif.info.get('duration', 100) / 1000.0  # Convert ms to seconds
-        except:
-            self.frame_duration = 0.1  # Default fallback
-
-        self.logger.debug(f"GIF loaded: {len(self.background_frames)} frames, duration: {self.frame_duration}s")
+        self.frame_duration = self.gif_durations[0]
 
     def _load_video(self):
         """Load a video and retrieve FPS from metadata"""
@@ -154,17 +148,26 @@ class FrameManager:
             raise RuntimeError(
                 f"Unsupported video format '{file_ext}'. Supported formats: {', '.join(self.SUPPORTED_VIDEO_FORMATS)}")
 
-        self.video_capture = cv2.VideoCapture(self.config.background_path)
-        if not self.video_capture.isOpened():
+        video_capture = cv2.VideoCapture(self.config.background_path)
+        if not video_capture.isOpened():
             raise RuntimeError(
                 f"Cannot open video: {self.config.background_path}. Please check if the file is corrupted or if OpenCV supports this codec.")
 
         # Get video properties
-        fps = self.video_capture.get(cv2.CAP_PROP_FPS)
-        frame_count = int(self.video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = video_capture.get(cv2.CAP_PROP_FPS)
+        frame_count = int(video_capture.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = frame_count / fps if fps > 0 else 0
-
         self.frame_duration = 1.0 / fps if fps > 0 else 1.0 / 30  # Fallback 30 FPS
+
+        for i in range(frame_count):
+            ret, frame = video_capture.read()
+            if not ret:
+                break
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            image = self._resize_image(Image.fromarray(frame_rgb))
+            self.background_frames.append(image)
+
+        video_capture.release()
 
         self.logger.info(f"Video loaded: {os.path.basename(self.config.background_path)}")
         self.logger.info(f"  Format: {os.path.splitext(self.config.background_path)[1].upper()}")
@@ -190,7 +193,11 @@ class FrameManager:
         if not image_files:
             raise RuntimeError(f"No images found in directory: {self.config.background_path}")
 
-        self.image_collection = image_files
+        for image_path in image_files:
+            image = Image.open(image_path)
+            image = self._resize_image(image)
+            self.background_frames.append(image)
+
         self.logger.debug(f"Image collection loaded: {len(image_files)} images")
 
     def _start_metrics_update(self):
@@ -204,8 +211,9 @@ class FrameManager:
         """Metrics update loop every second"""
         while self.metrics_running:
             try:
+                new_metrics = self._get_current_metric()
                 with self.metrics_lock:
-                    self.current_metrics = self._get_current_metric()
+                    self.current_metrics = new_metrics
 
                 time.sleep(1.0)  # Update every second
 
@@ -236,65 +244,25 @@ class FrameManager:
             self.logger.error(f"Error updating metrics: {e}")
             raise e
 
+    def _gif_duration(self, frame: Image.Image) -> float:
+        # Get duration from GIF metadata
+        try:
+            return frame.info.get('duration', 100) / 1000.0  # Convert ms to seconds
+        except:
+            return 0.1  # Default fallback
+
     def get_current_frame(self) -> Image.Image:
         """Get the current background frame"""
         current_time = time.time()
 
-        if self.config.background_type == BackgroundType.IMAGE:
-            return self.background_frames[0]
+        if current_time - self.frame_start_time >= self.frame_duration:
+            self.frame_start_time = current_time
+            self.current_frame_index = (self.current_frame_index + 1) % len(self.background_frames)
 
-        elif self.config.background_type in [BackgroundType.GIF, BackgroundType.IMAGE_COLLECTION]:
-            # Check if we need to change frame
-            if current_time - self.frame_start_time >= self.frame_duration:
-                self.current_frame_index = (self.current_frame_index + 1) % len(self._get_frame_source())
-                self.frame_start_time = current_time
+        if self.config.background_type == BackgroundType.GIF:
+            self.frame_duration = self.gif_durations[self.current_frame_index]
 
-            if self.config.background_type == BackgroundType.GIF:
-                return self.background_frames[self.current_frame_index]
-            else:  # IMAGE_COLLECTION
-                image_path = self.image_collection[self.current_frame_index]
-                image = Image.open(image_path)
-                image = image.resize((self.config.output_width, self.config.output_height), Image.Resampling.LANCZOS)
-                if image.mode != 'RGBA':
-                    image = image.convert('RGBA')
-                return image
-
-        elif self.config.background_type == BackgroundType.VIDEO:
-            if HAS_OPENCV and self.video_capture:
-                # Check if we need to read the next frame
-                if current_time - self.frame_start_time >= self.frame_duration:
-                    self.frame_start_time = current_time
-
-                    # Read next video frame
-                    ret, frame = self.video_capture.read()
-                    if not ret:
-                        # Restart video from beginning
-                        self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                        ret, frame = self.video_capture.read()
-
-                    if ret:
-                        # Convert BGR (OpenCV) to RGB (PIL)
-                        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                        image = Image.fromarray(frame_rgb)
-                        image = image.resize((self.config.output_width, self.config.output_height),
-                                             Image.Resampling.LANCZOS)
-                        if image.mode != 'RGBA':
-                            image = image.convert('RGBA')
-
-                        # Store current frame
-                        self._current_video_frame = image
-                        return image
-                else:
-                    # Return already loaded frame
-                    if hasattr(self, '_current_video_frame'):
-                        return self._current_video_frame
-            else:
-                # Fallback to static image behavior if OpenCV not available
-                if self.background_frames:
-                    return self.background_frames[0]
-
-        # Fallback
-        return Image.new('RGBA', (self.config.output_width, self.config.output_height), (0, 0, 0, 255))
+        return self.background_frames[self.current_frame_index]
 
     def get_current_frame_info(self) -> Tuple[int, float]:
         """
@@ -303,29 +271,19 @@ class FrameManager:
         Returns:
             Tuple[int, float]: (frame_index, display_duration)
         """
-        return (self.current_frame_index, self.frame_duration)
+        display_duration = self.wait_duration if self.wait_duration else self.frame_duration
+        return self.current_frame_index, display_duration
 
     def get_current_metrics(self) -> dict:
         """Get current metrics in a thread-safe manner"""
         with self.metrics_lock:
             return self.current_metrics.copy()
 
-    def _get_frame_source(self):
-        """Return the appropriate frame source"""
-        if self.config.background_type == BackgroundType.GIF:
-            return self.background_frames
-        elif self.config.background_type == BackgroundType.IMAGE_COLLECTION:
-            return self.image_collection
-        return []
-
     def cleanup(self):
         """Clean up resources"""
         self.metrics_running = False
         if self.metrics_thread:
             self.metrics_thread.join(timeout=2.0)
-
-        if self.video_capture:
-            self.video_capture.release()
 
         self.logger.debug("FrameManager cleaned up")
 

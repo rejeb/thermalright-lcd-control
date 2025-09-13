@@ -116,7 +116,6 @@ class PreviewManager:
                 self.preview_label.setPixmap(qpixmap)
             else:
                 self.preview_label.setText("Error converting\nimage")
-
             next_update_ms = max(int(duration * 1000), 33)
             self.preview_timer.setSingleShot(True)
             self.preview_timer.start(next_update_ms)
