@@ -218,3 +218,125 @@ class DisplayDevice87AD70DB(UsbDevice):
                 usb.util.release_interface(self.dev, self.iface)
             finally:
                 usb.util.dispose_resources(self.dev)
+
+
+# -----------------------------
+# ChiZhu Tech 87AD:70DB device (480x480 JPEG variant)
+# -----------------------------
+
+class DisplayDevice87AD70DB480(UsbDevice):
+    """
+    ChiZhu Tech USBDISPLAY (VID=0x87AD, PID=0x70DB), 480x480 JPEG variant
+    Protocol (based on capture analysis):
+      - Header: Variable structure starting with magic bytes
+          0x00..03 : 12 34 56 78 (magic)
+          0x04..07 : 02 00 00 00 (cmd = 2)
+          0x08..0B : width  (LE u32) = 480 (0x01e0)
+          0x0C..0F : height (LE u32) = 480 (0x01e0)
+          + padding and payload size info
+      - Payload: JPEG compressed image data
+      - Transfer: header + JPEG data in chunks
+    """
+    
+    W, H = 480, 480
+    
+    def __init__(self, config_dir: str, start_wait: float = 2.0, stop_wait: float = 2.0, jpeg_quality: int = 85):
+        # Use bulk transfer with reasonable chunk size
+        super().__init__(0x87AD, 0x70DB, 16384, self.W, self.H, config_dir)
+        self.start_wait = start_wait
+        self.stop_wait = stop_wait
+        self.jpeg_quality = jpeg_quality
+        time.sleep(max(self.start_wait, 0.0))
+    
+    def _make_header(self, cmd: int, payload_len: int) -> bytes:
+        """
+        Create header based on captured packet structure.
+        Analysis shows:
+        - Bytes 0-3: 12 34 56 78 (magic)
+        - Bytes 4-7: 02 00 00 00 (command = 2)
+        - Bytes 8-11: e0 01 00 00 (width = 480)  
+        - Bytes 12-15: e0 01 00 00 (height = 480)
+        - Bytes 16-55: all zeros
+        - Bytes 56-59: 02 00 00 00 (mode = 2)
+        - Bytes 60-63: payload length (4230 in capture = 0x1086)
+        """
+        hdr = bytearray(64)
+        hdr[0:4] = bytes.fromhex("12 34 56 78")  # Magic bytes
+        hdr[4:8] = int(cmd).to_bytes(4, "little")  # Command (2 for JPEG mode)
+        hdr[8:12] = int(self.width).to_bytes(4, "little")   # Width = 480
+        hdr[12:16] = int(self.height).to_bytes(4, "little") # Height = 480
+        # Bytes 16-55 are zeros (already initialized)
+        hdr[56:60] = int(2).to_bytes(4, "little")  # Mode field (from capture)
+        hdr[60:64] = int(payload_len).to_bytes(4, "little")  # Actual payload length
+        return bytes(hdr)
+    
+    def get_header(self) -> bytes:
+        """Return a default header - actual headers are created per frame"""
+        return self._make_header(cmd=2, payload_len=0)
+    
+    def _encode_image(self, img: Image) -> bytes:
+        """
+        Encode image as JPEG instead of raw RGB565.
+        This matches the JPEG data seen in the packet capture.
+        """
+        if img.size != (self.width, self.height):
+            img = img.resize((self.width, self.height), Image.LANCZOS)
+        
+        # Convert to RGB if not already
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
+        
+        # Encode as JPEG
+        import io
+        jpeg_buffer = io.BytesIO()
+        img.save(jpeg_buffer, format='JPEG', quality=self.jpeg_quality, optimize=True)
+        jpeg_data = jpeg_buffer.getvalue()
+        jpeg_buffer.close()
+        
+        return jpeg_data
+    
+    def run(self):
+        """Main display loop - send JPEG frames to device"""
+        self.logger.info("Display device (87AD:70DB-480) running (JPEG mode)")
+        
+        while True:
+            img, delay_time = self._get_generator().get_frame_with_duration()
+            jpeg_payload = self._encode_image(img)
+            
+            # Create header with actual payload size
+            header = self._make_header(cmd=2, payload_len=len(jpeg_payload))
+            
+            # Send header
+            self.dev.write(self.ep_out, header, timeout=2000)
+            
+            # Send JPEG payload in chunks
+            self.send_packet(jpeg_payload)
+            
+            # Send zero-length packet as frame delimiter (if needed)
+            try:
+                self._zlp()
+            except Exception:
+                pass  # Some devices may not need ZLP
+            
+            time.sleep(delay_time)
+    
+    def end_stream(self):
+        """Send end-of-stream marker"""
+        try:
+            # Send header with zero payload length
+            end_header = self._make_header(cmd=2, payload_len=0)
+            self.dev.write(self.ep_out, end_header, timeout=1000)
+            self._zlp()
+        except Exception:
+            pass
+        time.sleep(max(self.stop_wait, 0.0))
+    
+    def close(self):
+        """Clean shutdown"""
+        try:
+            self.end_stream()
+        finally:
+            try:
+                usb.util.release_interface(self.dev, self.iface)
+            finally:
+                usb.util.dispose_resources(self.dev)
