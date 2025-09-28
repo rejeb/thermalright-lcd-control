@@ -21,5 +21,3 @@ dependencies = [
 
 [project.scripts]
 application-name = "thermalright_lcd_control.main:main"
-
-/home/rbenrejeb/IdeaProjects/thermalright-lcd-control/releases
