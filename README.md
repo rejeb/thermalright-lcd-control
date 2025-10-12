@@ -4,6 +4,7 @@ A Linux application for controlling Thermalright LCD displays with an intuitive 
 
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
+![version](https://img.shields.io/badge/1.3.0-green.svg)
 
 ## Overview
 
