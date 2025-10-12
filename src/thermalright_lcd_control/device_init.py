@@ -73,7 +73,7 @@ def print_select_message(devices: list):
     )
 
     for idx, device in enumerate(devices, start=1):
-        select_message += f"  {idx}) {_format_device_string(device)}"
+        select_message += f"  {idx}) {_format_device_string(device)} \n"
 
     select_message += "\nPlease enter the number of the device you want to use."
     print(select_message)
@@ -87,10 +87,10 @@ def choose_device(devices: list) -> dict | None:
             return devices[selected_device - 1]
         else:
             print("❌ Invalid number. Please select a valid device index.\n")
-            choose_device(devices)
+            return choose_device(devices)
     except ValueError:
         print("⚠️  Please enter a number corresponding to a device.\n")
-        choose_device(devices)
+        return choose_device(devices)
 
 
 def select_device() -> dict | None:
