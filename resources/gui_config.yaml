@@ -30,5 +30,5 @@ supported_devices:
 
   - vid: "87ad"
     pid: "70db"
-    width: 320
-    height: 320
+    width: 480
+    height: 480
