@@ -49,56 +49,9 @@ and added the option to select a collection of images to cycle through on the di
 Download the appropriate package for your Linux distribution from
 the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) page:
 
-- **`.deb`** - For Ubuntu, Debian, and derivatives
-- **`.rpm`** - For Fedora, RHEL, CentOS, openSUSE, and derivatives
 - **`.targ.gz`** - For any distribution
 
-### Debian/Ubuntu Installation
-
-1. **Download** the `.deb` package:
-   ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.2.0/thermalright-lcd-control_1.2.0_all.deb -P /tmp/
-   ```
-
-2. **Install** the package:
-   ```bash
-   sudo apt install /tmp/thermalright-lcd-control_1.2.0_all.deb
-   ```
-
-3. **Fix dependencies** (if needed):
-   ```bash
-   sudo apt-get install -f
-   ```
-
-### Fedora/RHEL/CentOS Installation
-
-1. **Download** the `.rpm` package:
-   ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.2.0/thermalright-lcd-control-1.2.0-1.noarch.rpm -P /tmp/
-   ```
-
-2. **Install** the package:
-   ```bash
-   # Fedora/CentOS 8+
-   sudo dnf install /tmp/thermalright-lcd-control-*-1.noarch.rpm
-   
-   # RHEL/CentOS 7
-   sudo yum install /tmp/thermalright-lcd-control-*-1.noarch.rpm
-   ```
-
-### openSUSE Installation
-
-1. **Download** the `.rpm` package
-   ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.2.0/thermalright-lcd-control-1.2.0-1.noarch.rpm -P /tmp/
-   ```
-
-2. **Install** the package:
-   ```bash
-   sudo zypper install /tmp/thermalright-lcd-control-1.2.0-1.noarch.rpm
-   ```
-
-### Install using Tar.gz archive
+### Installation
 
 1. **Check** for required dependencies:
    /!\ Make sure you have these required dependencies installed:
