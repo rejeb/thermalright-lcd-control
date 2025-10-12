@@ -50,6 +50,7 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 - **`.deb`** - For Ubuntu, Debian, and derivatives
 - **`.rpm`** - For Fedora, RHEL, CentOS, openSUSE, and derivatives
+- **`.targ.gz`** - For any distribution
 
 ### Debian/Ubuntu Installation
 
