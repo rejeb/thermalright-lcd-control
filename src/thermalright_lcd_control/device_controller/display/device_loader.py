@@ -1,17 +1,10 @@
+import importlib
 from typing import Optional
 
 import usb.core
+import yaml
 
 from .display_device import DisplayDevice
-from .hid_devices import DisplayDevice04185304, DisplayDevice04165302
-from .usb_devices import DisplayDevice87AD70DB, DisplayDevice87AD70DB480
-
-SUPPORTED_DEVICES = [
-    (0x0418, 0x5304, DisplayDevice04185304),
-    (0x0416, 0x5302, DisplayDevice04165302),
-    (0x87AD, 0x70DB, DisplayDevice87AD70DB480),  # Updated to use 480x480 JPEG variant
-    # (vid, pid, Your new device class here ),
-]
 
 
 class DeviceLoader:
@@ -19,8 +12,31 @@ class DeviceLoader:
         self.config_dir = config_dir
 
     def load_device(self) -> Optional[DisplayDevice]:
-        for vid, pid, class_name in SUPPORTED_DEVICES:
-            device = usb.core.find(idVendor=vid, idProduct=pid)
-            if device is not None:
-                return class_name(self.config_dir)
+        with open(f"{self.config_dir}/device_info.yaml", "r") as config_file:
+            yaml_config = yaml.load(config_file, Loader=yaml.FullLoader)
+        class_name_str = yaml_config["class_name"]
+        vid = yaml_config["vid"]
+        pid = yaml_config["pid"]
+        device = usb.core.find(idVendor=vid, idProduct=pid)
+        if device is not None:
+            class_name = self.load_class(class_name_str)
+            return class_name(self.config_dir)
         return None
+
+    def load_class(self, full_class_name: str):
+        try:
+            module_name, class_name = full_class_name.rsplit(".", 1)
+        except ValueError:
+            raise ValueError(f"Invalid name : {full_class_name} (must contain dot)")
+
+        try:
+            module = importlib.import_module(module_name)
+        except ModuleNotFoundError as e:
+            raise ImportError(f"Impossible d’importer le module '{module_name}'") from e
+
+        try:
+            cls = getattr(module, class_name)
+        except AttributeError as e:
+            raise ImportError(f"Classe '{class_name}' introuvable dans '{module_name}'") from e
+
+        return cls

@@ -5,7 +5,7 @@
 """
 Module for detecting supported USB devices
 """
-
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 import usb.core
@@ -20,21 +20,20 @@ class USBDeviceDetector:
     def __init__(self, config_file: str = None):
         self.logger = get_gui_logger()
         self.config_file = config_file
-        self.supported_devices = []
-        self._load_supported_devices()
+        self.config = None
+        self._load_config()
 
-    def _load_supported_devices(self):
-        """Load the list of supported devices from config file"""
+    def _load_config(self):
+        """Load gui config from config file"""
         if not self.config_file:
             return
 
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
                 config = yaml.safe_load(f)
-                self.supported_devices = config.get('supported_devices', [])
+                self.config = config
         except (FileNotFoundError, yaml.YAMLError) as e:
             self.logger.error(f"Error loading configuration: {e}")
-            self.supported_devices = []
 
     def find_connected_device(self) -> Optional[Dict[str, Any]]:
         """
@@ -46,33 +45,17 @@ class USBDeviceDetector:
         """
         try:
             # Get all connected USB devices
-            connected_devices = usb.core.find(find_all=True)
+            device_config_file_path = Path(self.config['paths']['service_config'],"device_info.yaml")
 
-            # Check each supported device
-            for device in connected_devices:
-                for supported_device in self.supported_devices:
-                    supported_vid = supported_device.get('vid')
-                    supported_pid = supported_device.get('pid')
+            with open(device_config_file_path, 'r', encoding='utf-8') as f:
+                device_config = yaml.safe_load(f)
+            return device_config
 
-                    # Convert hexadecimal values if necessary
-                    if isinstance(supported_vid, str):
-                        supported_vid = int(supported_vid, 16)
-                    if isinstance(supported_pid, str):
-                        supported_pid = int(supported_pid, 16)
-                    # Search for matching device
-
-                    if device.idVendor == supported_vid and device.idProduct == supported_pid:
-                        return {
-                            'vid': supported_vid,
-                            'pid': supported_pid,
-                            'width': supported_device.get('width', 320),
-                            'height': supported_device.get('height', 240),
-                            'device_config': supported_device
-                        }
-
-        except usb.core.NoBackendError:
-            self.logger.error("Error: USB backend not available. Install libusb.")
+        except (FileNotFoundError, yaml.YAMLError) as e:
+            self.logger.error(f"Error loading device configuration file: {e}")
+            return None
         except Exception as e:
             self.logger.error(f"Error detecting USB devices: {e}")
+            return None
 
         return None

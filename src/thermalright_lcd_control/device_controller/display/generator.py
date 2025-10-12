@@ -2,7 +2,6 @@
 # Copyright © 2025 Rejeb Ben Rejeb
 
 import os
-import time
 from typing import Dict, Any, Tuple
 
 from PIL import Image, ImageDraw

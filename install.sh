@@ -35,6 +35,7 @@ BIN_DIR="$USER_HOME/.local/bin"
 CONFIG_DIR="$USER_HOME/.config/$APP_NAME"
 VENV_DIR="$APP_DIR/venv"
 DESKTOP_DIR="$USER_HOME/.local/share/applications"
+LOG_DIR="$USER_HOME/.local/state/$APP_NAME"
 
 # System service directory
 SYSTEMD_SYSTEM_DIR="/etc/systemd/system"
@@ -164,6 +165,7 @@ install_application() {
     mkdir -p "$BIN_DIR"
     mkdir -p "$CONFIG_DIR"
     mkdir -p "$DESKTOP_DIR"
+    mkdir -p "$LOG_DIR"
 
     # Copy source files
     log_info "Copying application files to $APP_DIR..."
@@ -224,8 +226,8 @@ install_system_service() {
     log_info "Installing system service..."
 
     # Copy and adapt the service file from resources
-    if [ -f "resources/$APP_NAME.service" ]; then
-        cp "resources/$APP_NAME.service" "$SYSTEMD_SYSTEM_DIR/"
+    if [ -f "$APP_NAME.service" ]; then
+        cp "$APP_NAME.service" "$SYSTEMD_SYSTEM_DIR/"
 
         # Update service file for user installation paths but keep root execution
         sed -i "s|/opt/thermalright-lcd-control/venv/bin/python|$VENV_DIR/bin/python|g" "$SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
@@ -330,8 +332,8 @@ install_desktop_entry() {
     log_info "Installing desktop entry..."
 
     # Copy and adapt desktop file from resources
-    if [ -f "resources/$APP_NAME.desktop" ]; then
-        cp "resources/$APP_NAME.desktop" "$DESKTOP_DIR/"
+    if [ -f "$APP_NAME.desktop" ]; then
+        cp "$APP_NAME.desktop" "$DESKTOP_DIR/"
 
         # Update paths in desktop file
         sed -i "s|Exec=.*|Exec=$BIN_DIR/$APP_NAME|g" "$DESKTOP_DIR/$APP_NAME.desktop"
@@ -392,6 +394,12 @@ setup_path() {
     fi
 }
 
+setup_device() {
+    PYTHONPATH="$APP_DIR:$PYTHONPATH"
+    export PYTHONPATH
+    $VENV_DIR/bin/python -m thermalright_lcd_control.device_init --config "$CONFIG_DIR/config"
+}
+
 main() {
     log_info "Starting installation of $APP_NAME v$VERSION"
     log_info "Application: user space, Service: system (root)"
@@ -408,32 +416,43 @@ main() {
     install_desktop_entry
     setup_path
 
-    # Install system service
-    install_system_service
+    setup_device
 
-    log_info ""
-    log_info "Installation completed successfully!"
-    log_info ""
-    log_info "Installation locations:"
-    log_info "  User: $ACTUAL_USER"
-    log_info "  Application: $APP_DIR"
-    log_info "  Virtual Env: $VENV_DIR"
-    log_info "  Executables: $BIN_DIR"
-    log_info "  Config: $CONFIG_DIR"
-    log_info "  Service: $SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
-    log_info ""
-    log_info "Status:"
-    log_info "  ✅ GUI application installed (user execution)"
-    log_info "  ✅ System service installed (root execution)"
-    log_info "  ✅ Theme and config paths updated"
-    log_info ""
-    log_info "Usage:"
-    log_info "  GUI: $APP_NAME (as user $ACTUAL_USER)"
-    log_info "  Service: sudo systemctl start $APP_NAME"
-    log_info "  Status: sudo systemctl status $APP_NAME"
-    log_info ""
-    log_info "Note: User $ACTUAL_USER may need to restart their terminal or run:"
-    log_info "  export PATH=\"$BIN_DIR:\$PATH\""
+    local setup_status=$?
+
+    echo "return status $setup_status"
+
+    if [ $setup_status -eq 0 ]; then
+       # Install system service
+       install_system_service
+
+       log_info ""
+       log_info "Installation completed successfully!"
+       log_info ""
+       log_info "Installation locations:"
+       log_info "  User: $ACTUAL_USER"
+       log_info "  Application: $APP_DIR"
+       log_info "  Virtual Env: $VENV_DIR"
+       log_info "  Executables: $BIN_DIR"
+       log_info "  Config: $CONFIG_DIR"
+       log_info "  Service: $SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
+       log_info ""
+       log_info "Status:"
+       log_info "  ✅ GUI application installed (user execution)"
+       log_info "  ✅ System service installed (root execution)"
+       log_info "  ✅ Theme and config paths updated"
+       log_info ""
+       log_info "Usage:"
+       log_info "  GUI: $APP_NAME (as user $ACTUAL_USER)"
+       log_info "  Service: sudo systemctl start $APP_NAME"
+       log_info "  Status: sudo systemctl status $APP_NAME"
+       log_info ""
+       log_info "Note: User $ACTUAL_USER may need to restart their terminal or run:"
+       log_info "  export PATH=\"$BIN_DIR:\$PATH\""
+    else
+      log_error "No supported device was found or Device configuration aborted!"
+    fi
+
 }
 
 # Run main function
