@@ -76,7 +76,7 @@ def main(config_file=None):
             for device in devices:
                 width = device.get('width', 'N/A')
                 height = device.get('height', 'N/A')
-                error_message += f"• VID: {vid}, PID: {pid} ({width}x{height})\n"
+                error_message += f"• VID: {hex(vid)}, PID: {hex(pid)} ({width}x{height})\n"
 
         error_message += (
             "\nPlease ensure a supported device is connected "
