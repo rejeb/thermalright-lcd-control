@@ -35,11 +35,11 @@ and added the option to select a collection of images to cycle through on the di
 
 ## Supported devices
 
-| VID:PID      |
-|--------------|
-| 0416:5302    |
-| 0418:5304    |
-| 87AD:70DB    |
+| VID:PID   | SCREEN RESOLUTION |
+|-----------|-------------------|
+| 0416:5302 | 320x240           |
+| 0418:5304 | 480x480           |
+| 87AD:70DB | 320x320,480x480   |
 
 ## Installation
 
@@ -55,7 +55,7 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.deb` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control_1.2.0_all.deb -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.2.0/thermalright-lcd-control_1.2.0_all.deb -P /tmp/
    ```
 
 2. **Install** the package:
@@ -72,7 +72,7 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.rpm` package:
    ```bash
-   wget https://media.githubusercontent.com/media/rejeb/thermalright-lcd-control/refs/heads/master/releases/thermalright-lcd-control-1.2.0-1.noarch.rpm -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.2.0/thermalright-lcd-control-1.2.0-1.noarch.rpm -P /tmp/
    ```
 
 2. **Install** the package:
@@ -88,7 +88,7 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 1. **Download** the `.rpm` package
    ```bash
-   wget https://media.githubusercontent.com/media/rejeb/thermalright-lcd-control/refs/heads/master/releases/thermalright-lcd-control-1.2.0-1.noarch.rpm -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.2.0/thermalright-lcd-control-1.2.0-1.noarch.rpm -P /tmp/
    ```
 
 2. **Install** the package:
@@ -107,16 +107,16 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 2. **Download** the `.tar.gz` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/raw/refs/heads/master/releases/thermalright-lcd-control-1.2.0.tar.gz -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.2.0/thermalright-lcd-control-1.2.0.tar.gz -P /tmp/
    ```
-   
+
 3. **Untar** the archive file:
    ```bash
    cd /tmp
    
    tar -xvf thermalright-lcd-control-1.2.0.tar.gz
    ```
-    
+
 4. **Install** application:
    ```bash
    cd /thermalright-lcd-control
@@ -127,21 +127,20 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 That's it! The application is now installed. You can see the default theme displayed on your Thermalright LCD device.
 
 ## Troubleshooting
-If your device is 0416:5302 and nothing is displayed:
-    - Check service status to see if it is running
-    - Try restart service
-    - Check service logs located in /var/log/thermalright-lcd-control.log
 
+If your device is 0416:5302 and nothing is displayed:
+- Check service status to see if it is running
+- Try restart service
+- Check service logs located in /var/log/thermalright-lcd-control.log
 
 If your device is one of the other devices, contributions are welcome.
 Here some tips to help you:
-    - Check service status to see if it is running
-    - Check service logs located in /var/log/thermalright-lcd-control.log
-    - If the device is not working then this possibly mean that header value is not correct. 
+- Check service status to see if it is running
+- Check service logs located in /var/log/thermalright-lcd-control.log
+- If the device is not working then this possibly mean that header value is not correct.
 See [Add new device](#add-new-device) section to fix header generation.
-    - If the device is working but image is not good, this means that the image is not encoded correctly.
+- If the device is working but image is not good, this means that the image is not encoded correctly.
 See [Add new device](#add-new-device) section to fix image encoding by overriding method _`_encode_image`.
-
 
 ## Usage
 
@@ -175,8 +174,8 @@ sudo systemctl stop thermalright-lcd-control.service
 
 ## Add new device
 
-In [HOWTO.md](doc/HOWTO.md) I detail all the steps I gone through to find out how myy device works and all steps to add a new device.
-
+In [HOWTO.md](doc/HOWTO.md) I detail all the steps I gone through to find out how myy device works and all steps to add
+a new device.
 
 ## License
 

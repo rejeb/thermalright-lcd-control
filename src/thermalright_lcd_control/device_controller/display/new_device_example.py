@@ -1,16 +1,19 @@
 from PIL import Image
 
 
-class DisplayDeviceVIDPID(#UsbDevice if you want to use usb device
-                           #HidDevice if you want to use hid device
-                           ):
+class DisplayDeviceVIDPID(  # UsbDevice if you want to use usb device
+    # HidDevice if you want to use hid device
+):
+    W, H = 320, 240
+    VID, PID = 0x0000, 0x0000
     def __init__(self, config_dir: str):
-        super().__init__(0x0000,# device vid
-                         0x0000,# device pid
-                         0x0000,# the size in bytes, in wireshark it corresponds to the value of the property usb.data_len.
-                         320, # the width of the screen
-                         240, # the height of the screen
-                         config_dir # just keep as it
+        super().__init__(self.VID,  # device vid
+                         self.PID,  # device pid
+                         0000,
+                         # the size in bytes, in wireshark it corresponds to the value of the property usb.data_len.
+                         self.W,  # the width of the screen
+                         self.H,  # the height of the screen
+                         config_dir  # just keep as it
                          )
         # Change report_id value if different from bytes([0x00]), this byte is appended to every packet.
         # self.report_id = "new value"
@@ -26,3 +29,13 @@ class DisplayDeviceVIDPID(#UsbDevice if you want to use usb device
         # If encoding is not good, the screen will display a blurry image.
         # Try to find the correct encoding. and implement it here.
         return super()._encode_image(img)
+
+    @staticmethod
+    def info() -> dict:
+        return {
+            "class_name": f"{DisplayDeviceVIDPID.__module__}.{DisplayDeviceVIDPID.__name__}",
+            "width": DisplayDeviceVIDPID.W,
+            "height": DisplayDeviceVIDPID.H,
+            "vid": DisplayDeviceVIDPID.VID,
+            "pid": DisplayDeviceVIDPID.PID,
+        }

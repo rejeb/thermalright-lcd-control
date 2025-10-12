@@ -160,7 +160,7 @@ You're free to add new python file for the device or :
 
 If you choose to add a new file, make sure you put vid/pid in file name for example `device_0418_5304.py`.
 
-And then add your device in `SUPPORTED_DEVICES` variable in `device_loader.py` file.
+And then add your device in `SUPPORTED_DEVICES` variable in `supported_devices.py` file.
 
 In `resources/config`, there is pre-configured themes for different screen resolutions. Files are named as config_
 {width}{height}.yaml.

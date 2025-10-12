@@ -11,8 +11,8 @@ from pathlib import Path
 class LoggerConfig:
     """Configuration centralisée pour les loggers du projet"""
 
-    SERVICE_LOG_FILE = "/var/log/thermalright-lcd-control.log"
-    GUI_LOG_FILE = "/tmp/thermalright-lcd-control-gui.log"
+    SERVICE_LOG_FILE = "/var/log/thermalright-lcd-control-service.log"
+    GUI_LOG_FILE = f"{Path.home()}/.local/state/thermalright-lcd-control/thermalright-lcd-control-gui.log"
 
     @staticmethod
     def is_development_mode():

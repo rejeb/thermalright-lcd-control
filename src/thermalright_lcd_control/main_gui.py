@@ -11,6 +11,8 @@ import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+
+
 # Add the parent directory to Python path for direct execution
 if __name__ == "__main__" and __package__ is None:
     # Get the directory containing this file
@@ -25,7 +27,7 @@ if __name__ == "__main__" and __package__ is None:
 
 from .gui.main_window import MediaPreviewUI
 from .gui.utils.usb_detector import USBDeviceDetector
-
+from .common.supported_devices import SUPPORTED_DEVICES
 
 def show_error_and_exit(message: str):
     """Display error message and exit application"""
@@ -70,12 +72,11 @@ def main(config_file=None):
         )
 
         # Add supported devices list to message
-        for device in detector.supported_devices:
-            vid = device.get('vid', 'N/A')
-            pid = device.get('pid', 'N/A')
-            width = device.get('width', 'N/A')
-            height = device.get('height', 'N/A')
-            error_message += f"• VID: {vid}, PID: {pid} ({width}x{height})\n"
+        for vid,pid, devices in SUPPORTED_DEVICES:
+            for device in devices:
+                width = device.get('width', 'N/A')
+                height = device.get('height', 'N/A')
+                error_message += f"• VID: {vid}, PID: {pid} ({width}x{height})\n"
 
         error_message += (
             "\nPlease ensure a supported device is connected "

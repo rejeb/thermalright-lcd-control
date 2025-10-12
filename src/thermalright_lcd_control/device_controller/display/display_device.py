@@ -16,19 +16,28 @@ class DisplayDevice(ABC):
     _generator: DisplayGenerator = None
     dev = None
     report_id = bytes([0x00])
-
+    vid = None
+    pid = None
+    width = None
+    height = None
     def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
         self.vid = vid
         self.pid = pid
-        self.chunk_size = chunk_size
         self.height = height
         self.width = width
+        self.chunk_size = chunk_size
         self.header = self.get_header()
         self.config_file = f"{config_dir}/config_{width}{height}.yaml"
         self.last_modified = pathlib.Path(self.config_file).stat().st_mtime_ns
         self.logger = self.logger = LoggerConfig.setup_service_logger()
         self._build_generator()
         self.logger.debug(f"DisplayDevice initialized with header: {self.header}")
+
+    def __getitem__(self, __name):
+        return self.__getattribute__(__name)
+
+    def __str__(self):
+        return f"VID: {self.vid}, PID: {self.pid} ({self.width}x{self.height})"
 
     def _build_generator(self) -> DisplayGenerator:
         config_loader = ConfigLoader()
@@ -104,4 +113,11 @@ class DisplayDevice(ABC):
 
     @abstractmethod
     def send_packet(self, packet: bytes):
+        pass
+
+    def get(self, __name, default=None):
+        return self.__dict__.get(__name, default)
+
+    @staticmethod
+    def info() -> dict:
         pass

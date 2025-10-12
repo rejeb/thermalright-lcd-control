@@ -61,10 +61,12 @@ copy_files() {
         log_info "Resources copied (including .desktop and .service files)"
     fi
 
-    # Copy debian structure (for the executable)
-    if [ -d "debian" ]; then
-        cp -r debian/usr "$PACKAGE_DIR/"
-        log_info "Debian structure copied (including executable)"
+    # Copy Scripts structure (for the executable)
+    if [ -d "scripts" ]; then
+        cp -r scripts/usr "$PACKAGE_DIR/"
+        cp scripts/$APP_NAME.service "$PACKAGE_DIR/"
+        cp scripts/$APP_NAME.desktop "$PACKAGE_DIR/"
+        log_info "Scripts structure copied (including executable)"
     fi
 
     # Copy project files

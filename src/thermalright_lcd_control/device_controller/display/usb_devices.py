@@ -1,11 +1,11 @@
 # usb_devices.py
+import time
 from abc import ABC
 from typing import Optional, Tuple
-import time
 
+import numpy as np
 import usb.core
 import usb.util
-import numpy as np
 from PIL import Image
 
 from .display_device import DisplayDevice
@@ -116,7 +116,7 @@ class UsbDevice(DisplayDevice, ABC):
 # ChiZhu Tech 87AD:70DB device
 # -----------------------------
 
-class DisplayDevice87AD70DB(UsbDevice):
+class DisplayDevice87AD70DB320(UsbDevice):
     """
     ChiZhu Tech USBDISPLAY (VID=0x87AD, PID=0x70DB), 320x320
     Protocol (confirmed):
@@ -131,28 +131,29 @@ class DisplayDevice87AD70DB(UsbDevice):
       - Transfer order per frame: header(64) → 400×(512B) → ZLP
       - EOS: single header(len=0, mode=2) + ZLP, then a short quiet wait
     """
-    PKT = 512
     W, H = 320, 320
-    PAYLOAD_BYTES = W * H * 2      # 204,800
+    VID, PID = 0x87AD, 0x70DB
+    PKT = 512
+    PAYLOAD_BYTES = W * H * 2  # 204,800
     PACKETS_PER_FRAME = PAYLOAD_BYTES // PKT  # 400
 
     def __init__(self, config_dir: str, start_wait: float = 2.0, stop_wait: float = 2.0):
         # app-level “chunk_size” not used for the actual frame writes; we still set it
-        super().__init__(0x87AD, 0x70DB, self.PKT, self.W, self.H, config_dir)
+        super().__init__(self.VID, self.PID, self.PKT, self.W, self.H, config_dir)
         self.start_wait = start_wait
         self.stop_wait = stop_wait
         # Build standard headers now
         self._hdr_frame = self._make_header(cmd=3, mode=2, payload_len=self.PAYLOAD_BYTES)
-        self._hdr_eos   = self._make_header(cmd=3, mode=2, payload_len=0)
+        self._hdr_eos = self._make_header(cmd=3, mode=2, payload_len=0)
         time.sleep(max(self.start_wait, 0.0))  # quiet window like the working flow
 
     def _make_header(self, cmd: int, mode: int, payload_len: int) -> bytes:
         hdr = bytearray(64)
-        hdr[0:4]   = bytes.fromhex("12 34 56 78")
-        hdr[4:8]   = int(cmd).to_bytes(4, "little")
-        hdr[8:12]  = int(self.width).to_bytes(4, "little")
+        hdr[0:4] = bytes.fromhex("12 34 56 78")
+        hdr[4:8] = int(cmd).to_bytes(4, "little")
+        hdr[8:12] = int(self.width).to_bytes(4, "little")
         hdr[12:16] = int(self.height).to_bytes(4, "little")
-        hdr[0x38:0x3C] = int(mode).to_bytes(4, "little")         # mode = 2
+        hdr[0x38:0x3C] = int(mode).to_bytes(4, "little")  # mode = 2
         hdr[0x3C:0x40] = int(payload_len).to_bytes(4, "little")  # bytes in payload
         return bytes(hdr)
 
@@ -219,6 +220,16 @@ class DisplayDevice87AD70DB(UsbDevice):
             finally:
                 usb.util.dispose_resources(self.dev)
 
+    @staticmethod
+    def info() -> dict:
+        return {
+            "class_name": f"{DisplayDevice87AD70DB320.__module__}.{DisplayDevice87AD70DB320.__name__}",
+            "width": DisplayDevice87AD70DB320.W,
+            "height": DisplayDevice87AD70DB320.H,
+            "vid": DisplayDevice87AD70DB320.VID,
+            "pid": DisplayDevice87AD70DB320.PID,
+        }
+
 
 # -----------------------------
 # ChiZhu Tech 87AD:70DB device (480x480 JPEG variant)
@@ -237,24 +248,25 @@ class DisplayDevice87AD70DB480(UsbDevice):
       - Payload: JPEG compressed image data
       - Transfer: header + JPEG data in chunks
     """
-    
+
     W, H = 480, 480
-    
+    VID, PID = 0x87AD, 0x70DB
+
     def __init__(self, config_dir: str, start_wait: float = 2.0, stop_wait: float = 2.0, jpeg_quality: int = 85):
         # Use bulk transfer with reasonable chunk size
-        super().__init__(0x87AD, 0x70DB, 16384, self.W, self.H, config_dir)
+        super().__init__(self.VID, self.PID, 16384, self.W, self.H, config_dir)
         self.start_wait = start_wait
         self.stop_wait = stop_wait
         self.jpeg_quality = jpeg_quality
         time.sleep(max(self.start_wait, 0.0))
-    
+
     def _make_header(self, cmd: int, payload_len: int) -> bytes:
         """
         Create header based on captured packet structure.
         Analysis shows:
         - Bytes 0-3: 12 34 56 78 (magic)
         - Bytes 4-7: 02 00 00 00 (command = 2)
-        - Bytes 8-11: e0 01 00 00 (width = 480)  
+        - Bytes 8-11: e0 01 00 00 (width = 480)
         - Bytes 12-15: e0 01 00 00 (height = 480)
         - Bytes 16-55: all zeros
         - Bytes 56-59: 02 00 00 00 (mode = 2)
@@ -263,17 +275,17 @@ class DisplayDevice87AD70DB480(UsbDevice):
         hdr = bytearray(64)
         hdr[0:4] = bytes.fromhex("12 34 56 78")  # Magic bytes
         hdr[4:8] = int(cmd).to_bytes(4, "little")  # Command (2 for JPEG mode)
-        hdr[8:12] = int(self.width).to_bytes(4, "little")   # Width = 480
-        hdr[12:16] = int(self.height).to_bytes(4, "little") # Height = 480
+        hdr[8:12] = int(self.width).to_bytes(4, "little")  # Width = 480
+        hdr[12:16] = int(self.height).to_bytes(4, "little")  # Height = 480
         # Bytes 16-55 are zeros (already initialized)
         hdr[56:60] = int(2).to_bytes(4, "little")  # Mode field (from capture)
         hdr[60:64] = int(payload_len).to_bytes(4, "little")  # Actual payload length
         return bytes(hdr)
-    
+
     def get_header(self) -> bytes:
         """Return a default header - actual headers are created per frame"""
         return self._make_header(cmd=2, payload_len=0)
-    
+
     def _encode_image(self, img: Image) -> bytes:
         """
         Encode image as JPEG instead of raw RGB565.
@@ -281,45 +293,45 @@ class DisplayDevice87AD70DB480(UsbDevice):
         """
         if img.size != (self.width, self.height):
             img = img.resize((self.width, self.height), Image.LANCZOS)
-        
+
         # Convert to RGB if not already
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        
+
         # Encode as JPEG
         import io
         jpeg_buffer = io.BytesIO()
         img.save(jpeg_buffer, format='JPEG', quality=self.jpeg_quality, optimize=True)
         jpeg_data = jpeg_buffer.getvalue()
         jpeg_buffer.close()
-        
+
         return jpeg_data
-    
+
     def run(self):
         """Main display loop - send JPEG frames to device"""
         self.logger.info("Display device (87AD:70DB-480) running (JPEG mode)")
-        
+
         while True:
             img, delay_time = self._get_generator().get_frame_with_duration()
             jpeg_payload = self._encode_image(img)
-            
+
             # Create header with actual payload size
             header = self._make_header(cmd=2, payload_len=len(jpeg_payload))
-            
+
             # Send header
             self.dev.write(self.ep_out, header, timeout=2000)
-            
+
             # Send JPEG payload in chunks
             self.send_packet(jpeg_payload)
-            
+
             # Send zero-length packet as frame delimiter (if needed)
             try:
                 self._zlp()
             except Exception:
                 pass  # Some devices may not need ZLP
-            
+
             time.sleep(delay_time)
-    
+
     def end_stream(self):
         """Send end-of-stream marker"""
         try:
@@ -330,7 +342,7 @@ class DisplayDevice87AD70DB480(UsbDevice):
         except Exception:
             pass
         time.sleep(max(self.stop_wait, 0.0))
-    
+
     def close(self):
         """Clean shutdown"""
         try:
@@ -340,3 +352,13 @@ class DisplayDevice87AD70DB480(UsbDevice):
                 usb.util.release_interface(self.dev, self.iface)
             finally:
                 usb.util.dispose_resources(self.dev)
+
+    @staticmethod
+    def info() -> dict:
+        return {
+            "class_name": f"{DisplayDevice87AD70DB480.__module__}.{DisplayDevice87AD70DB480.__name__}",
+            "width": DisplayDevice87AD70DB480.W,
+            "height": DisplayDevice87AD70DB480.H,
+            "vid": DisplayDevice87AD70DB480.VID,
+            "pid": DisplayDevice87AD70DB480.PID,
+        }

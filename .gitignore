@@ -51,13 +51,16 @@ __pycache__/
 
 # Environnements virtuels
 venv/
+.venv/
 .env
 
 # Fichiers générés
 build/
 dist/
+releases/
 *.egg-info/
 
 # Fichiers temporaires
 *.log
 *.tmp
+/resources/config/device_info.yaml
