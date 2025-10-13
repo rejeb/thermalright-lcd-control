@@ -51,6 +51,9 @@ class DisplayConfig:
     output_width: int = 320
     output_height: int = 240
 
+    # Display rotation (0, 90, 180, 270 degrees)
+    rotation: int = 0
+
     # Global font configuration (applies to all text elements)
     global_font_path: Optional[str] = None
 

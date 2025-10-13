@@ -1,4 +1,5 @@
 display:
+  rotation: 0
   background:
     path: /usr/share/thermalright-lcd-control/themes/backgrounds/y010.png
     type: image
