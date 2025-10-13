@@ -52,9 +52,13 @@ class DisplayGenerator:
             self.logger.warning(f"Cannot load foreground image: {e}")
             return background
 
-    def generate_frame_with_metrics(self, metrics: dict) -> Image.Image:
+    def generate_frame_with_metrics(self, metrics: dict, apply_rotation: bool = True) -> Image.Image:
         """
         Generate a complete frame with all elements and real-time metrics
+
+        Args:
+            metrics: Dictionary of metric values to display
+            apply_rotation: Whether to apply rotation to the final frame (default: True)
         """
         # Get current background
         background = self.frame_manager.get_current_frame()
@@ -76,13 +80,14 @@ class DisplayGenerator:
 
         convert = result.convert('RGB')
 
-        # Apply rotation if configured
-        if self.config.rotation == 90:
-            convert = convert.transpose(Image.ROTATE_270)  # PIL rotation is counter-clockwise
-        elif self.config.rotation == 180:
-            convert = convert.transpose(Image.ROTATE_180)
-        elif self.config.rotation == 270:
-            convert = convert.transpose(Image.ROTATE_90)
+        # Apply rotation if configured and requested
+        if apply_rotation:
+            if self.config.rotation == 90:
+                convert = convert.transpose(Image.ROTATE_270)  # PIL rotation is counter-clockwise
+            elif self.config.rotation == 180:
+                convert = convert.transpose(Image.ROTATE_180)
+            elif self.config.rotation == 270:
+                convert = convert.transpose(Image.ROTATE_90)
 
         return convert
 
@@ -91,15 +96,19 @@ class DisplayGenerator:
         metrics = self.frame_manager.get_current_metrics()
         return self.generate_frame_with_metrics(metrics)
 
-    def get_frame_with_duration(self) -> Tuple[Image, float]:
+    def get_frame_with_duration(self, apply_rotation: bool = True) -> Tuple[Image, float]:
         """
         Generate a complete frame and return it with its display duration
+
+        Args:
+            apply_rotation: Whether to apply rotation to the frame (default: True)
 
         Returns:
             Tuple[Image.Image, float]: (generated_image, display_duration_seconds)
         """
-        # Generate the complete frame
-        frame = self.generate_frame()
+        # Get current real-time metrics
+        metrics = self.frame_manager.get_current_metrics()
+        frame = self.generate_frame_with_metrics(metrics, apply_rotation=apply_rotation)
         return frame, self.refresh_interval
 
     def get_current_metrics(self) -> Dict[str, Any]:

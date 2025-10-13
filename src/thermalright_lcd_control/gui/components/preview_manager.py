@@ -111,7 +111,8 @@ class PreviewManager:
             return
 
         try:
-            pil_image, duration = self.display_generator.get_frame_with_duration()
+            # Get frame without rotation for preview (apply_rotation=False)
+            pil_image, duration = self.display_generator.get_frame_with_duration(apply_rotation=False)
             qpixmap = self.pil_image_to_qpixmap(pil_image)
 
             if qpixmap and not qpixmap.isNull():
