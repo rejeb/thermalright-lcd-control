@@ -35,6 +35,13 @@ class GpuMetrics(Metrics):
         self.amd_pci_bdf = None            # e.g., "0000:65:00.0"
         self.amd_hwmon_base = None         # /sys/class/hwmon/hwmonY
 
+        # Cache to optimize performance
+        self._temp_path_cache = None
+        self._temp_method_cache = None
+        self._usage_path_cache = None
+        self._freq_path_cache = None
+        self._freq_method_cache = None
+
         self.logger.debug("GpuMetrics initialized")
         self._detect_gpu()
 
@@ -280,13 +287,27 @@ class GpuMetrics(Metrics):
             return None
 
     def _get_nvidia_temperature(self):
+        # Use cache if available
+        if self._temp_method_cache == "nvidia" and self._temp_path_cache:
+            try:
+                r = subprocess.run(
+                    self._temp_path_cache,
+                    capture_output=True, text=True, timeout=2
+                )
+                if r.returncode == 0 and r.stdout.strip():
+                    self.gpu_temp = float(r.stdout.strip().splitlines()[0])
+                    return self.gpu_temp
+            except Exception:
+                self._temp_path_cache = None
+                self._temp_method_cache = None
+
         try:
-            r = subprocess.run(
-                ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
-                capture_output=True, text=True, timeout=4
-            )
+            cmd = ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=4)
             if r.returncode == 0 and r.stdout.strip():
                 self.gpu_temp = float(r.stdout.strip().splitlines()[0])
+                self._temp_path_cache = cmd
+                self._temp_method_cache = "nvidia"
                 self.logger.debug(f"NVIDIA GPU temperature: {self.gpu_temp}°C")
                 return self.gpu_temp
         except Exception:
@@ -298,6 +319,15 @@ class GpuMetrics(Metrics):
         Prefer 'junction'/'hotspot' label if present, else 'edge' for the selected card.
         temp*_input is millidegrees.
         """
+        # Use cache if available
+        if self._temp_method_cache == "amd_hwmon" and self._temp_path_cache:
+            v = self._read_file_float(self._temp_path_cache, scale=1/1000.0)
+            if v is not None:
+                return v
+            # Invalidate cache on failure
+            self._temp_path_cache = None
+            self._temp_method_cache = None
+
         bases = []
         if self.amd_hwmon_base:
             bases.append(self.amd_hwmon_base)
@@ -342,6 +372,8 @@ class GpuMetrics(Metrics):
                     if os.path.exists(p):
                         v = self._read_file_float(p, scale=1/1000.0)
                         if v is not None:
+                            self._temp_path_cache = p
+                            self._temp_method_cache = "amd_hwmon"
                             return v
 
                 # fallback: first temp*_input
@@ -349,6 +381,8 @@ class GpuMetrics(Metrics):
                 if inputs:
                     v = self._read_file_float(inputs[0], scale=1/1000.0)
                     if v is not None:
+                        self._temp_path_cache = inputs[0]
+                        self._temp_method_cache = "amd_hwmon"
                         return v
             except Exception:
                 continue
@@ -384,6 +418,16 @@ class GpuMetrics(Metrics):
         return None
 
     def _get_intel_temperature(self):
+        # Use cache if available
+        if self._temp_method_cache == "intel" and self._temp_path_cache:
+            v = self._read_file_float(self._temp_path_cache, scale=1/1000.0)
+            if v is not None:
+                self.gpu_temp = v
+                return v
+            # Invalidate cache on failure
+            self._temp_path_cache = None
+            self._temp_method_cache = None
+
         try:
             for name_file in glob.glob("/sys/class/hwmon/hwmon*/name"):
                 with open(name_file) as f:
@@ -394,6 +438,8 @@ class GpuMetrics(Metrics):
                     v = self._read_file_float(tin, scale=1/1000.0)
                     if v is not None:
                         self.gpu_temp = v
+                        self._temp_path_cache = tin
+                        self._temp_method_cache = "intel"
                         self.logger.debug(f"Intel GPU temperature: {v:.1f}°C")
                         return v
         except Exception:
@@ -417,10 +463,11 @@ class GpuMetrics(Metrics):
             return None
 
     def _get_nvidia_usage(self):
+        # Reuse nvidia-smi with reduced timeout
         try:
             r = subprocess.run(
                 ["nvidia-smi", "--query-gpu=utilization.gpu", "--format=csv,noheader,nounits"],
-                capture_output=True, text=True, timeout=4
+                capture_output=True, text=True, timeout=2
             )
             if r.returncode == 0 and r.stdout.strip():
                 self.gpu_usage = float(r.stdout.strip().splitlines()[0])
@@ -434,11 +481,21 @@ class GpuMetrics(Metrics):
         """
         Use the selected AMD card's instantaneous busy percent.
         """
+        # Use cache if available
+        if self._usage_path_cache:
+            try:
+                with open(self._usage_path_cache) as f:
+                    self.gpu_usage = float(f.read().strip())
+                    return self.gpu_usage
+            except Exception:
+                self._usage_path_cache = None
+
         if self.amd_card_path:
             p = os.path.join(self.amd_card_path, "gpu_busy_percent")
             try:
                 with open(p) as f:
                     self.gpu_usage = float(f.read().strip())
+                    self._usage_path_cache = p
                     self.logger.debug(f"AMD GPU usage: {self.gpu_usage:.1f}% (from {p})")
                     return self.gpu_usage
             except Exception:
@@ -449,12 +506,13 @@ class GpuMetrics(Metrics):
             try:
                 with open(p) as f:
                     self.gpu_usage = float(f.read().strip())
+                    self._usage_path_cache = p
                     self.logger.debug(f"AMD GPU usage: {self.gpu_usage:.1f}% (from {p})")
                     return self.gpu_usage
             except Exception:
                 continue
 
-        # rocm-smi fallback
+        # rocm-smi fallback (no cache due to expensive subprocess)
         try:
             r = subprocess.run(["rocm-smi", "--showuse"],
                                capture_output=True, text=True, timeout=4)
@@ -505,10 +563,11 @@ class GpuMetrics(Metrics):
             return None
 
     def _get_nvidia_frequency(self):
+        # Reduced timeout for nvidia-smi
         try:
             r = subprocess.run(
                 ["nvidia-smi", "--query-gpu=clocks.current.graphics", "--format=csv,noheader,nounits"],
-                capture_output=True, text=True, timeout=4
+                capture_output=True, text=True, timeout=2
             )
             if r.returncode == 0 and r.stdout.strip():
                 self.gpu_freq = round(float(r.stdout.strip().splitlines()[0]), 2)
@@ -519,6 +578,19 @@ class GpuMetrics(Metrics):
         return None
 
     def _amd_freq_from_pp_dpm(self, card_dev_dir):
+        # Use cache if available
+        if self._freq_method_cache == "pp_dpm" and self._freq_path_cache:
+            try:
+                with open(self._freq_path_cache) as f:
+                    for line in f:
+                        if "*" in line:
+                            mhz = re.search(r"(\d+)\s*MHz", line, re.IGNORECASE)
+                            if mhz:
+                                return float(mhz.group(1))
+            except Exception:
+                self._freq_path_cache = None
+                self._freq_method_cache = None
+
         p = os.path.join(card_dev_dir, "pp_dpm_sclk")
         try:
             with open(p) as f:
@@ -532,12 +604,24 @@ class GpuMetrics(Metrics):
                     return None
                 mhz = re.search(r"(\d+)\s*MHz", current, re.IGNORECASE)
                 if mhz:
+                    self._freq_path_cache = p
+                    self._freq_method_cache = "pp_dpm"
                     return float(mhz.group(1))
         except Exception:
             pass
         return None
 
     def _amd_freq_from_hwmon(self):
+        # Use cache if available
+        if self._freq_method_cache == "hwmon" and self._freq_path_cache:
+            try:
+                hz = self._read_file_float(self._freq_path_cache, scale=1.0)
+                if hz and hz > 0:
+                    return round(hz / 1_000_000.0, 2)
+            except Exception:
+                self._freq_path_cache = None
+                self._freq_method_cache = None
+
         # some kernels expose freq1_input (Hz) under the selected amdgpu hwmon
         base = self.amd_hwmon_base
         if not base:
@@ -547,6 +631,8 @@ class GpuMetrics(Metrics):
             if os.path.exists(f1):
                 hz = self._read_file_float(f1, scale=1.0)
                 if hz and hz > 0:
+                    self._freq_path_cache = f1
+                    self._freq_method_cache = "hwmon"
                     return round(hz / 1_000_000.0, 2)  # Hz → MHz
         except Exception:
             pass
@@ -556,6 +642,18 @@ class GpuMetrics(Metrics):
         """
         Match the debugfs node by PCI BDF (in dri/*/name) to the selected card.
         """
+        # Use cache if available
+        if self._freq_method_cache == "debugfs" and self._freq_path_cache:
+            try:
+                with open(self._freq_path_cache) as f:
+                    txt = f.read()
+                m = re.search(r"GPU\s+clock:\s+(\d+)\s*MHz", txt, re.IGNORECASE)
+                if m:
+                    return float(m.group(1))
+            except Exception:
+                self._freq_path_cache = None
+                self._freq_method_cache = None
+
         if not self.amd_pci_bdf:
             return None
         for d in glob.glob("/sys/kernel/debug/dri/*"):
@@ -573,6 +671,8 @@ class GpuMetrics(Metrics):
                             txt = f.read()
                         m = re.search(r"GPU\s+clock:\s+(\d+)\s*MHz", txt, re.IGNORECASE)
                         if m:
+                            self._freq_path_cache = info
+                            self._freq_method_cache = "debugfs"
                             return float(m.group(1))
             except Exception:
                 continue
@@ -607,10 +707,22 @@ class GpuMetrics(Metrics):
         return None
 
     def _get_intel_frequency(self):
+        # Use cache if available
+        if self._freq_method_cache == "intel" and self._freq_path_cache:
+            try:
+                with open(self._freq_path_cache) as f:
+                    self.gpu_freq = round(float(f.read().strip()), 2)
+                    return self.gpu_freq
+            except Exception:
+                self._freq_path_cache = None
+                self._freq_method_cache = None
+
         try:
             for p in glob.glob("/sys/class/drm/card*/gt_cur_freq_mhz"):
                 with open(p) as f:
                     self.gpu_freq = round(float(f.read().strip()), 2)
+                    self._freq_path_cache = p
+                    self._freq_method_cache = "intel"
                     self.logger.debug(f"Intel GPU frequency: {self.gpu_freq} MHz")
                     return self.gpu_freq
         except Exception:

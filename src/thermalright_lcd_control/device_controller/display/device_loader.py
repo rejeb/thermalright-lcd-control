@@ -23,7 +23,8 @@ class DeviceLoader:
             return class_name(self.config_dir)
         return None
 
-    def load_class(self, full_class_name: str):
+    @staticmethod
+    def load_class(full_class_name: str):
         try:
             module_name, class_name = full_class_name.rsplit(".", 1)
         except ValueError:

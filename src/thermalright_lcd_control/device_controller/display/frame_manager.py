@@ -5,14 +5,16 @@ import glob
 import os
 import threading
 import time
+from threading import Timer
 from typing import Tuple
-
 from PIL import Image, ImageSequence
 
 from .config import BackgroundType, DisplayConfig
 from ..metrics.cpu_metrics import CpuMetrics
 from ..metrics.gpu_metrics import GpuMetrics
 from ...common.logging_config import get_service_logger
+
+
 
 # Try to import OpenCV for video support
 try:
@@ -28,7 +30,9 @@ class FrameManager:
 
     # Supported video formats
     SUPPORTED_VIDEO_FORMATS = ['.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv', '.wmv', '.m4v']
-
+    DEFAULT_FRAME_DURATION = 2.0
+    def __init__(self, config: DisplayConfig):
+        self.config = config
     def __init__(self, config: DisplayConfig):
         self.config = config
         self.logger = get_service_logger()
@@ -37,11 +41,10 @@ class FrameManager:
         self.current_frame_index = 0
         self.background_frames = []
         self.gif_durations = []
-        self.frame_duration = 1.0
+        self.frame_duration = self.DEFAULT_FRAME_DURATION
         self.frame_start_time = 0
-        self.metrics_thread = None
+        self.metrics_thread: Timer | None = None
         self.metrics_running = False
-        self.metrics_lock = threading.Lock()
         if len(config.metrics_configs) != 0:
             # Initialize metrics collectors
             self.cpu_metrics = CpuMetrics()
@@ -54,6 +57,7 @@ class FrameManager:
             self.cpu_metrics = None
             self.gpu_metrics = None
             self.current_metrics = {}
+            self._stop_metrics_update()
 
         # Load background
         self._load_background()
@@ -71,7 +75,6 @@ class FrameManager:
         try:
             if self.config.background_type == BackgroundType.IMAGE:
                 self._load_static_image()
-                self.frame_duration = 1.0  # Fixed 1 second for images
             elif self.config.background_type == BackgroundType.GIF:
                 self._load_gif()
             elif self.config.background_type == BackgroundType.VIDEO:
@@ -86,10 +89,8 @@ class FrameManager:
                             f"Unsupported video format. Supported formats: {', '.join(self.SUPPORTED_VIDEO_FORMATS)}. Falling back to static image.")
                     # Fallback to treating video path as a static image
                     self._load_static_image()
-                    self.frame_duration = 1.0
             elif self.config.background_type == BackgroundType.IMAGE_COLLECTION:
                 self._load_image_collection()
-                self.frame_duration = 1.0  # 1 second per image by default
 
             self.frame_start_time = time.time()
             self.logger.info(
@@ -122,7 +123,7 @@ class FrameManager:
         gif = Image.open(self.config.background_path)
 
         self.background_frames = []
-        i = 0
+
         # Extract all frames from GIF
         for frame in ImageSequence.Iterator(gif):
             gif_frame_duration = self._gif_duration(frame)
@@ -202,24 +203,26 @@ class FrameManager:
 
     def _start_metrics_update(self):
         """Start the metrics update thread every second"""
+        self.logger.info("Starting metrics update thread ...")
         self.metrics_running = True
-        self.metrics_thread = threading.Thread(target=self._metrics_update_loop, daemon=True)
+        self.metrics_thread = threading.Timer(interval=2.0,function=self._metrics_update_loop)
         self.metrics_thread.start()
         self.logger.debug("Metrics update thread started")
 
+    def _stop_metrics_update(self):
+        """Start the metrics update thread every second"""
+        self.metrics_running = False
+        if self.metrics_thread:
+            self.metrics_thread.cancel()
+            self.metrics_thread = None
+        self.logger.debug("Metrics update thread started")
+
     def _metrics_update_loop(self):
-        """Metrics update loop every second"""
-        while self.metrics_running:
-            try:
-                new_metrics = self._get_current_metric()
-                with self.metrics_lock:
-                    self.current_metrics = new_metrics
-
-                time.sleep(1.0)  # Update every second
-
-            except Exception as e:
-                self.logger.error(f"Error updating metrics: {e}")
-                time.sleep(1.0)
+        new_metrics = self._get_current_metric()
+        self.current_metrics = new_metrics
+        if self.metrics_running:
+            self.metrics_thread = threading.Timer(interval=2.0, function=self._metrics_update_loop)
+            self.metrics_thread.start()
 
     def _get_current_metric(self):
         try:
@@ -276,14 +279,14 @@ class FrameManager:
 
     def get_current_metrics(self) -> dict:
         """Get current metrics in a thread-safe manner"""
-        with self.metrics_lock:
-            return self.current_metrics.copy()
+        return self.current_metrics
 
     def cleanup(self):
         """Clean up resources"""
         self.metrics_running = False
         if self.metrics_thread:
-            self.metrics_thread.join(timeout=2.0)
+            self.metrics_thread.cancel()
+            self.metrics_thread = None
 
         self.logger.debug("FrameManager cleaned up")
 

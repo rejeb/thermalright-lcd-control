@@ -20,6 +20,7 @@ class DisplayDevice(ABC):
     pid = None
     width = None
     height = None
+
     def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
         self.vid = vid
         self.pid = pid
@@ -30,7 +31,7 @@ class DisplayDevice(ABC):
         self.config_file = f"{config_dir}/config_{width}{height}.yaml"
         self.last_modified = pathlib.Path(self.config_file).stat().st_mtime_ns
         self.logger = self.logger = LoggerConfig.setup_service_logger()
-        self._build_generator()
+        self._generator = self._build_generator()
         self.logger.debug(f"DisplayDevice initialized with header: {self.header}")
 
     def __getitem__(self, __name):
