@@ -111,9 +111,13 @@ class ConfigLoader:
             )
             foreground_alpha = display_data["foreground"]["alpha"]
 
+        # Parse rotation (default to 0 if not specified)
+        rotation = display_data.get("rotation", 0)
+
         config = DisplayConfig(
             output_width=width,
             output_height=height,
+            rotation=rotation,
             background_path=display_data["background"]["path"],
             background_type=BackgroundType(display_data["background"]["type"]),
             foreground_image_path=foreground_path,

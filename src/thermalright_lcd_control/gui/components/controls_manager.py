@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (QScrollArea, QWidget, QVBoxLayout, QHBoxLayout,
                                QGroupBox, QLabel, QLineEdit, QPushButton,
-                               QSpinBox, QCheckBox, QApplication)
+                               QSpinBox, QCheckBox, QApplication, QComboBox)
 from PySide6.QtWidgets import QSlider
 
 from ..widgets.draggable_widget import TextStyleConfig
@@ -24,6 +24,7 @@ class ControlsManager:
         # Control widgets
         self.opacity_input = None
         self.opacity_value_label = None
+        self.rotation_combo = None
         self.font_size_spin = None
         self.color_btn = None
         self.show_date_checkbox = None
@@ -41,6 +42,7 @@ class ControlsManager:
         controls_layout = QVBoxLayout(controls_container)
 
         # Add all control sections
+        controls_layout.addWidget(self._create_rotation_controls())
         controls_layout.addWidget(self._create_opacity_controls())
         controls_layout.addWidget(self._create_text_style_controls())
         controls_layout.addWidget(self._create_overlay_controls())
@@ -48,6 +50,32 @@ class ControlsManager:
 
         scroll_area.setWidget(controls_container)
         return scroll_area
+
+    def _create_rotation_controls(self) -> QGroupBox:
+        """Create rotation controls"""
+        rotation_group = QGroupBox("Display Rotation")
+        rotation_layout = QHBoxLayout(rotation_group)
+
+        rotation_layout.addWidget(QLabel("Rotation:"))
+
+        self.rotation_combo = QComboBox()
+        self.rotation_combo.addItem("0°", 0)
+        self.rotation_combo.addItem("90°", 90)
+        self.rotation_combo.addItem("180°", 180)
+        self.rotation_combo.addItem("270°", 270)
+        self.rotation_combo.setCurrentIndex(0)  # Default to 0°
+        self.rotation_combo.currentIndexChanged.connect(self._on_rotation_changed)
+
+        rotation_layout.addWidget(self.rotation_combo)
+        rotation_layout.addStretch()
+
+        return rotation_group
+
+    def _on_rotation_changed(self, index):
+        """Handle rotation combo box change"""
+        rotation_value = self.rotation_combo.itemData(index)
+        if hasattr(self.parent, 'on_rotation_changed'):
+            self.parent.on_rotation_changed(rotation_value)
 
     def _create_opacity_controls(self) -> QGroupBox:
         """Create foreground opacity controls"""

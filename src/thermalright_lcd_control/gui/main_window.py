@@ -44,6 +44,7 @@ class MediaPreviewUI(QMainWindow):
         # Initialize components
         self.text_style = TextStyleConfig()
         self.media_tabs = []
+        self.current_rotation = 0  # Default rotation
 
         # UI Components will be initialized in setup_ui
         self.preview_label = None
@@ -211,6 +212,17 @@ class MediaPreviewUI(QMainWindow):
 
             display_config = theme_config.get('display', {})
             self.logger.debug(f"Display config loaded: {display_config.keys()}")
+
+            # Load rotation if specified
+            rotation = display_config.get('rotation', 0)
+            self.current_rotation = rotation
+            if self.controls_manager and self.controls_manager.rotation_combo:
+                # Find and set the correct index
+                index = self.controls_manager.rotation_combo.findData(rotation)
+                if index >= 0:
+                    self.controls_manager.rotation_combo.setCurrentIndex(index)
+            if self.preview_manager:
+                self.preview_manager.set_rotation(rotation)
 
             # Load background
             background_config = display_config.get('background', {})
@@ -435,6 +447,12 @@ class MediaPreviewUI(QMainWindow):
             self.text_style.color = color
             self.controls_manager.update_color_button()
             self.apply_style_to_all_widgets()
+
+    def on_rotation_changed(self, rotation):
+        """Handle rotation change"""
+        self.current_rotation = rotation
+        if self.preview_manager:
+            self.preview_manager.set_rotation(rotation)
 
     def on_font_size_changed(self, size):
         """Handle font size change"""

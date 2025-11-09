@@ -28,6 +28,7 @@ class ConfigGenerator:
                                                                preview_manager.preview_height)
             config_data = {
                 "display": {
+                    "rotation": preview_manager.current_rotation,
                     "background": {
                         "path": preview_manager.current_background_path or "",
                         "type": preview_manager.determine_background_type(preview_manager.current_background_path).value

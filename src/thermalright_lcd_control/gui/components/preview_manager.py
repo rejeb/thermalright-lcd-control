@@ -27,6 +27,7 @@ class PreviewManager:
         self.current_background_path = None
         self.current_foreground_path = None
         self.foreground_opacity = 0.5
+        self.current_rotation = 0
 
         # Components
         self.display_generator = None
@@ -89,6 +90,7 @@ class PreviewManager:
                 background_type=self.determine_background_type(self.current_background_path),
                 output_width=self.preview_width,
                 output_height=self.preview_height,
+                rotation=self.current_rotation,
                 global_font_path=self.text_style.font_family,
                 foreground_image_path=self.current_foreground_path,
                 foreground_position=(0, 0),
@@ -109,7 +111,8 @@ class PreviewManager:
             return
 
         try:
-            pil_image, duration = self.display_generator.get_frame_with_duration()
+            # Get frame without rotation for preview (apply_rotation=False)
+            pil_image, duration = self.display_generator.get_frame_with_duration(apply_rotation=False)
             qpixmap = self.pil_image_to_qpixmap(pil_image)
 
             if qpixmap and not qpixmap.isNull():
@@ -148,6 +151,11 @@ class PreviewManager:
     def set_foreground_opacity(self, opacity: float):
         """Set foreground opacity (0.0 to 1.0)"""
         self.foreground_opacity = opacity
+        self.create_display_generator()
+
+    def set_rotation(self, rotation: int):
+        """Set display rotation (0, 90, 180, 270)"""
+        self.current_rotation = rotation
         self.create_display_generator()
 
     def clear_background(self, backgrounds_dir: str):
