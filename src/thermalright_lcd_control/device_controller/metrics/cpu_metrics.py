@@ -17,6 +17,12 @@ class CpuMetrics(Metrics):
         self.cpu_temp = None
         self.cpu_freq = None
 
+        # Cache to optimize performance
+        self._temp_path_cache = None
+        self._temp_method_cache = None
+        self._freq_path_cache = None
+        self._hwmon_roots_cache = None
+
     # ---------- helpers ----------
     def _read_float(self, path, scale=1.0):
         try:
@@ -26,6 +32,10 @@ class CpuMetrics(Metrics):
             return None
 
     def _list_hwmon_roots(self):
+        # Cache hwmon roots to avoid repeated scans
+        if self._hwmon_roots_cache is not None:
+            return self._hwmon_roots_cache
+
         roots = set()
         # Generic hwmon
         roots.update(os.path.dirname(p) for p in glob.glob("/sys/class/hwmon/hwmon*/name"))
@@ -36,7 +46,9 @@ class CpuMetrics(Metrics):
         # If /device/name exists under hwmon, include those too
         for devname in glob.glob("/sys/class/hwmon/hwmon*/device/name"):
             roots.add(os.path.dirname(os.path.dirname(devname)))
-        return sorted(roots)
+
+        self._hwmon_roots_cache = sorted(roots)
+        return self._hwmon_roots_cache
 
     def _amd_hwmon_candidates(self):
         """Return list of (root, driver_name_lower) for k10temp/zenpower only."""
@@ -112,11 +124,42 @@ class CpuMetrics(Metrics):
 
     # ---------- temperature ----------
     def get_temperature(self):
+        # Use cache if available
+        if self._temp_path_cache and self._temp_method_cache:
+            try:
+                if self._temp_method_cache == "hwmon":
+                    v = self._read_float(self._temp_path_cache, 1/1000.0)
+                    if v is not None:
+                        self.cpu_temp = v
+                        return v
+                elif self._temp_method_cache == "psutil":
+                    temps = psutil.sensors_temperatures()
+                    key, idx = self._temp_path_cache
+                    if key in temps and len(temps[key]) > idx:
+                        cur = getattr(temps[key][idx], "current", None)
+                        if cur is not None:
+                            self.cpu_temp = float(cur)
+                            return self.cpu_temp
+                elif self._temp_method_cache == "thermal":
+                    v = self._read_float(self._temp_path_cache, 1/1000.0)
+                    if v is not None:
+                        self.cpu_temp = v
+                        return v
+            except Exception:
+                # Invalidate cache on error
+                self._temp_path_cache = None
+                self._temp_method_cache = None
+
         # 1) AMD hwmon direct
         try:
             for root, drv in self._amd_hwmon_candidates():
                 v, src = self._pick_best_amd_temp(root)
                 if v is not None:
+                    # Cache the found path
+                    m = re.search(r"(.*temp\d+_input)", src)
+                    if m:
+                        self._temp_path_cache = m.group(1)
+                        self._temp_method_cache = "hwmon"
                     self.cpu_temp = v
                     self.logger.debug(f"CPU temp via {drv}: {v:.1f}°C from {src}")
                     return v
@@ -129,18 +172,22 @@ class CpuMetrics(Metrics):
             # Try explicit k10temp/zenpower keys first
             for key in ("k10temp", "zenpower", "coretemp", "cpu-thermal", "acpitz"):
                 if key in temps and temps[key]:
-                    for e in temps[key]:
+                    for idx, e in enumerate(temps[key]):
                         cur = getattr(e, "current", None)
                         if cur is not None:
                             self.cpu_temp = float(cur)
+                            self._temp_path_cache = (key, idx)
+                            self._temp_method_cache = "psutil"
                             self.logger.debug(f"CPU temp via psutil[{key}]: {self.cpu_temp:.1f}°C")
                             return self.cpu_temp
             # Otherwise, heuristically pick the first with a plausible current
             for name, entries in temps.items():
-                for e in entries:
+                for idx, e in enumerate(entries):
                     cur = getattr(e, "current", None)
                     if cur is not None and 0.0 < cur < 120.0:
                         self.cpu_temp = float(cur)
+                        self._temp_path_cache = (name, idx)
+                        self._temp_method_cache = "psutil"
                         self.logger.debug(f"CPU temp via psutil[{name}]: {self.cpu_temp:.1f}°C")
                         return self.cpu_temp
         except Exception as e:
@@ -159,6 +206,8 @@ class CpuMetrics(Metrics):
                 v = self._read_float(tfile, 1/1000.0)
                 if v is not None and 0.0 < v < 120.0:
                     self.cpu_temp = v
+                    self._temp_path_cache = tfile
+                    self._temp_method_cache = "thermal"
                     self.logger.debug(f"CPU temp via thermal zone '{tname}': {v:.1f}°C")
                     return v
         except Exception as e:
@@ -170,7 +219,8 @@ class CpuMetrics(Metrics):
     # ---------- usage ----------
     def get_usage_percentage(self):
         try:
-            self.cpu_usage = psutil.cpu_percent(interval=0.5)
+            # Use interval=None to avoid blocking; relies on previous call for accurate reading
+            self.cpu_usage = psutil.cpu_percent(interval=0)
             return self.cpu_usage
         except Exception as e:
             self.logger.error(f"Error reading CPU usage: {e}")
@@ -178,11 +228,20 @@ class CpuMetrics(Metrics):
 
     # ---------- frequency ----------
     def _cpufreq_sysfs(self):
+        # Use cache if available
+        if self._freq_path_cache:
+            v = self._read_float(self._freq_path_cache, 1/1000.0)
+            if v:
+                return round(v, 2)
+            # Invalidate cache on failure
+            self._freq_path_cache = None
+
         for p in ("/sys/devices/system/cpu/cpufreq/policy0/scaling_cur_freq",
                   "/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq"):
             if os.path.exists(p):
                 v = self._read_float(p, 1/1000.0)  # kHz -> MHz
                 if v:
+                    self._freq_path_cache = p
                     return round(v, 2)
         return None
 

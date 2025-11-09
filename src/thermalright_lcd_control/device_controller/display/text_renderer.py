@@ -125,13 +125,15 @@ class TextRenderer:
             # Draw text
             draw.text(config.position, text, fill=config.color, font=font)
 
-    def render_date(self, draw: ImageDraw.Draw, config: Optional[TextConfig]):
+    def render_date(self, draw: ImageDraw.Draw, config: Optional[TextConfig], now: datetime = None):
         """Display current date formatted as dd/mm"""
         if not config or not config.enabled:
             return
 
-        # dd/mm format
-        current_date = datetime.now().strftime("%d/%m")
+        # dd/mm format - use provided datetime to avoid multiple calls
+        if now is None:
+            now = datetime.now()
+        current_date = now.strftime("%d/%m")
 
         # Get font using global font configuration
         font = self._get_font(config.font_size)
@@ -139,13 +141,15 @@ class TextRenderer:
         # Draw text
         draw.text(config.position, current_date, fill=config.color, font=font)
 
-    def render_time(self, draw: ImageDraw.Draw, config: Optional[TextConfig]):
+    def render_time(self, draw: ImageDraw.Draw, config: Optional[TextConfig], now: datetime = None):
         """Display current time formatted as HH:MM"""
         if not config or not config.enabled:
             return
 
-        # HH:MM format
-        current_time = datetime.now().strftime("%H:%M")
+        # HH:MM format - use provided datetime to avoid multiple calls
+        if now is None:
+            now = datetime.now()
+        current_time = now.strftime("%H:%M")
 
         # Get font using global font configuration
         font = self._get_font(config.font_size)

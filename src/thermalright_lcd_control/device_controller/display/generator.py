@@ -19,7 +19,6 @@ class DisplayGenerator:
     def __init__(self, config: DisplayConfig):
         self.config = config
         self.logger = self.logger = LoggerConfig.setup_service_logger()
-        self.refresh_interval = 0.01
         # Initialize components
         self.frame_manager = FrameManager(config)
         self.text_renderer = TextRenderer(config)  # Pass config for global font
@@ -109,7 +108,7 @@ class DisplayGenerator:
         # Get current real-time metrics
         metrics = self.frame_manager.get_current_metrics()
         frame = self.generate_frame_with_metrics(metrics, apply_rotation=apply_rotation)
-        return frame, self.refresh_interval
+        return frame, self.frame_manager.frame_duration
 
     def get_current_metrics(self) -> Dict[str, Any]:
         """Get current metrics"""
