@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 
-from ..device_controller.display.hid_devices import DisplayDevice04185304, DisplayDevice04165302
-from ..device_controller.display.usb_devices import DisplayDevice87AD70DB320, DisplayDevice87AD70DB480
+from thermalright_lcd_control.device_controller.display.hid_devices import DisplayDevice04185304, DisplayDevice04165302
+from thermalright_lcd_control.device_controller.display.usb_devices import DisplayDevice87AD70DB320, DisplayDevice87AD70DB480
 
 """
 For existing (vid,pid) add your new device in the list:

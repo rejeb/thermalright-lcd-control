@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 import glob, os, re
 import psutil
-from . import Metrics
-from ...common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.metrics import Metrics
+from thermalright_lcd_control.common.logging_config import LoggerConfig
 
 class CpuMetrics(Metrics):
     """

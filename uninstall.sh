@@ -59,7 +59,7 @@ get_user_directories() {
     fi
 
     APP_DIR="$USER_HOME/.local/share/$APP_NAME"
-    BIN_DIR="$USER_HOME/.local/bin"
+    BIN_DIR="/usr/local/bin"
     CONFIG_DIR="$USER_HOME/.config/$APP_NAME"
     DESKTOP_DIR="$USER_HOME/.local/share/applications"
 }
@@ -95,30 +95,22 @@ remove_user_installation() {
         log_info "Application directory removed: $APP_DIR"
     fi
 
-    # Remove executable
-    if [ -f "$BIN_DIR/$APP_NAME" ]; then
-        rm -f "$BIN_DIR/$APP_NAME"
-        log_info "Executable removed: $BIN_DIR/$APP_NAME"
+    # Remove gui executable
+    if [ -f "$BIN_DIR/$APP_NAME-gui" ]; then
+        rm -f "$BIN_DIR/$APP_NAME-gui"
+        log_info "Executable removed: $BIN_DIR/$APP_NAME-gui"
+    fi
+
+    # Remove service executable
+    if [ -f "$BIN_DIR/$APP_NAME-service" ]; then
+        rm -f "$BIN_DIR/$APP_NAME-service"
+        log_info "Executable removed: $BIN_DIR/$APP_NAME-service"
     fi
 
     # Remove desktop entry
     if [ -f "$DESKTOP_DIR/$APP_NAME.desktop" ]; then
         rm -f "$DESKTOP_DIR/$APP_NAME.desktop"
         log_info "Desktop entry removed"
-    fi
-}
-
-remove_user_configs() {
-    # Ask about user config directory
-    if [ -d "$CONFIG_DIR" ]; then
-        echo -n "Remove user configuration directory $CONFIG_DIR? [y/N]: "
-        read -r REPLY
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            rm -rf "$CONFIG_DIR"
-            log_info "User configuration directory removed"
-        else
-            log_info "User configuration directory preserved"
-        fi
     fi
 }
 
@@ -190,15 +182,6 @@ remove_other_users() {
                 fi
             fi
         done
-
-        # Also check root home
-        if [ -d "/root/.local/share/$APP_NAME" ] || [ -d "/root/.config/$APP_NAME" ]; then
-            log_info "Removing root user installation"
-            rm -rf "/root/.local/share/$APP_NAME" 2>/dev/null || true
-            rm -rf "/root/.config/$APP_NAME" 2>/dev/null || true
-            rm -f "/root/.local/bin/$APP_NAME" 2>/dev/null || true
-            rm -f "/root/.local/share/applications/$APP_NAME.desktop" 2>/dev/null || true
-        fi
 
         log_info "All user installations removed"
     else

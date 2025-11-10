@@ -5,8 +5,8 @@ import os
 
 from PIL import ImageFont
 
-from .utils import _get_default_font_path
-from ...common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.display.utils import _get_default_font_path
+from thermalright_lcd_control.common.logging_config import LoggerConfig
 
 
 class SystemFontManager:

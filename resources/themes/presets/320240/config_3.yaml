@@ -1,6 +1,6 @@
 display:
   background:
-    path: /usr/share/thermalright-lcd-control/themes/backgrounds/a004.png
+    path: ./resources/themes/backgrounds/a004.png
     type: image
   date:
     color: '#FFFFFFFF'
@@ -13,7 +13,7 @@ display:
   foreground:
     alpha: 0.8
     enabled: true
-    path: /usr/share/thermalright-lcd-control/themes/foregrounds/{resolution}/008a.png
+    path: ./resources/themes/foregrounds/{resolution}/008a.png
     position:
       x: 0
       y: 0

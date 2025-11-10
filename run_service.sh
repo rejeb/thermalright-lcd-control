@@ -10,6 +10,11 @@ if [ $EUID -ne 0 ]; then
     exit 1
 fi
 
+echo "$SUDO_USER"
+echo "$SUDO_UID"
+echo "$SUDO_GID"
+
+getent group $SUDO_GID
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

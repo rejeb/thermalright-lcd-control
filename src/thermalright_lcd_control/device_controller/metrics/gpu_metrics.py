@@ -7,8 +7,8 @@ import os
 import re
 import subprocess
 
-from . import Metrics
-from ...common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.metrics import Metrics
+from thermalright_lcd_control.common.logging_config import LoggerConfig
 
 
 class GpuMetrics(Metrics):

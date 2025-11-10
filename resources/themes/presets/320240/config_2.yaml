@@ -1,6 +1,6 @@
 display:
   background:
-    path: /usr/share/thermalright-lcd-control/themes/backgrounds/a001.mp4
+    path: ./resources/themes/backgrounds/a001.mp4
     type: video
   date:
     color: '#FFFFFFFF'
@@ -13,7 +13,7 @@ display:
   foreground:
     alpha: 1.0
     enabled: true
-    path: /usr/share/thermalright-lcd-control/themes/foregrounds/{resolution}/006b.png
+    path: ./resources/themes/foregrounds/{resolution}/006b.png
     position:
       x: 0
       y: 0

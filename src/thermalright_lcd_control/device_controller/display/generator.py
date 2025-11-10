@@ -6,11 +6,11 @@ from typing import Dict, Any, Tuple
 
 from PIL import Image, ImageDraw
 
-from .config import DisplayConfig
-from .frame_manager import FrameManager
-from .text_renderer import TextRenderer
-from .utils import async_background
-from ...common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.display.config import DisplayConfig
+from thermalright_lcd_control.device_controller.display.frame_manager import FrameManager
+from thermalright_lcd_control.device_controller.display.text_renderer import TextRenderer
+from thermalright_lcd_control.device_controller.display.utils import async_background
+from thermalright_lcd_control.common.logging_config import LoggerConfig
 
 
 class DisplayGenerator:

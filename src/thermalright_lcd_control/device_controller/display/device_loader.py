@@ -4,7 +4,7 @@ from typing import Optional
 import usb.core
 import yaml
 
-from .display_device import DisplayDevice
+from thermalright_lcd_control.device_controller.display.display_device import DisplayDevice
 
 
 class DeviceLoader:

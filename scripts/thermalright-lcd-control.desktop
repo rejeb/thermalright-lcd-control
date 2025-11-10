@@ -2,7 +2,7 @@
 Type=Application
 Name=Linux Thermal rigth lcd display control
 Comment=Linux Thermal rigth lcd display control
-Exec=/usr/bin/thermalright-lcd-control
+Exec=thermalright-lcd-control-gui
 Icon=thermalright-lcd-control
 Terminal=false
 Categories=Utility;Application;

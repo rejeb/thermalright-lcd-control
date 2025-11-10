@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
@@ -31,7 +32,7 @@ VERSION=$(get_version)
 # User directories
 USER_HOME="$HOME"
 APP_DIR="$USER_HOME/.local/share/$APP_NAME"
-BIN_DIR="$USER_HOME/.local/bin"
+BIN_DIR="/usr/local/bin"
 CONFIG_DIR="$USER_HOME/.config/$APP_NAME"
 VENV_DIR="$APP_DIR/venv"
 DESKTOP_DIR="$USER_HOME/.local/share/applications"
@@ -76,7 +77,6 @@ check_sudo() {
         # Update user paths to use the actual user's home
         USER_HOME="$ACTUAL_HOME"
         APP_DIR="$USER_HOME/.local/share/$APP_NAME"
-        BIN_DIR="$USER_HOME/.local/bin"
         CONFIG_DIR="$USER_HOME/.config/$APP_NAME"
         VENV_DIR="$APP_DIR/venv"
         DESKTOP_DIR="$USER_HOME/.local/share/applications"
@@ -91,27 +91,33 @@ check_sudo() {
     fi
 }
 
+check_uv_installed() {
+    log_info "Checking if uv is installed..."
+
+    if ! command -v uv &> /dev/null; then
+        log_warn "uv is not installed. Installing uv system-wide..."
+
+        # Download and install uv directly to /usr/local/bin
+        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh
+
+        # Verify installation
+        if ! command -v uv &> /dev/null; then
+            log_error "Failed to install uv"
+            log_info "Please install uv manually: https://github.com/astral-sh/uv"
+            exit 1
+        fi
+
+        log_info "uv installed successfully at: $(command -v uv)"
+    else
+        log_info "uv is already installed at: $(command -v uv)"
+    fi
+}
+
 check_dependencies() {
     log_info "Checking system dependencies..."
 
-    # Check Python 3
-    if ! command -v python3 &> /dev/null; then
-        log_error "Python 3 is required but not installed"
-        exit 1
-    fi
-
-    # Check pip
-    if ! command -v pip3 &> /dev/null && ! python3 -m pip --version &> /dev/null; then
-        log_error "pip is required but not installed"
-        exit 1
-    fi
-
-    # Check venv module
-    if ! python3 -c "import venv" &> /dev/null; then
-        log_error "python3-venv is required but not installed"
-        log_info "Install it with: sudo apt-get install python3-venv"
-        exit 1
-    fi
+    # Check uv
+    check_uv_installed
 
     # Check hidapi library
     check_hidapi
@@ -138,12 +144,6 @@ check_hidapi() {
         fi
     fi
 
-    # Method 3: Try to import hid in Python
-    if python3 -c "import hid" &> /dev/null; then
-        HIDAPI_FOUND=true
-        log_info "hidapi Python module already available"
-    fi
-
     if [ "$HIDAPI_FOUND" = false ]; then
         log_error "hidapi library might not be installed system-wide"
         log_info "If installation fails, install hidapi with:"
@@ -162,64 +162,116 @@ install_application() {
 
     # Create user directories
     mkdir -p "$APP_DIR"
-    mkdir -p "$BIN_DIR"
     mkdir -p "$CONFIG_DIR"
     mkdir -p "$DESKTOP_DIR"
     mkdir -p "$LOG_DIR"
 
-    # Copy source files
+    # Copy resources
     log_info "Copying application files to $APP_DIR..."
-    cp -r "thermalright_lcd_control" "$APP_DIR/"
     cp -r resources "$APP_DIR/"
-    cp pyproject.toml "$APP_DIR/"
     cp README.md "$APP_DIR/"
     cp LICENSE "$APP_DIR/"
 
-    # Copy and adapt the launcher script from usr/bin
-    if [ -f "usr/bin/$APP_NAME" ]; then
-        cp "usr/bin/$APP_NAME" "$BIN_DIR/"
-
-        # Update paths in the launcher script for user installation
-        sed -i "s|/opt/thermalright-lcd-control/venv|$VENV_DIR|g" "$BIN_DIR/$APP_NAME"
-        sed -i "s|/usr/lib/thermalright-lcd-control|$APP_DIR/|g" "$BIN_DIR/$APP_NAME"
-        sed -i "s|/etc/thermalright-lcd-control/gui_config.yaml|$CONFIG_DIR/gui_config.yaml|g" "$BIN_DIR/$APP_NAME"
-
-        chmod +x "$BIN_DIR/$APP_NAME"
-        log_info "Launcher script adapted and copied to $BIN_DIR"
-    else
-        log_error "Launcher script not found in usr/bin/$APP_NAME"
+    # Find the wheel file
+    WHEEL_FILE=$(ls *.whl 2>/dev/null | head -n 1)
+    if [ -z "$WHEEL_FILE" ]; then
+        log_error "Wheel file not found. Please run create_package.sh first."
         exit 1
     fi
 
-    # Create Python virtual environment
-    log_info "Creating Python virtual environment..."
-    python3 -m venv "$VENV_DIR"
-    "$VENV_DIR/bin/pip" install --upgrade pip
+    log_info "Found wheel: $WHEEL_FILE"
 
-    # Install Python dependencies
-    log_info "Installing Python dependencies..."
-    cd "$APP_DIR"
-
-    # Try to use tomllib for Python 3.11+, fallback for older versions
-    if python3 -c "import tomllib" 2>/dev/null; then
-        log_info "Using tomllib to parse dependencies"
-        DEPS=$("$VENV_DIR/bin/python3" -c "import tomllib; deps = tomllib.load(open('pyproject.toml', 'rb'))['project']['dependencies']; print(' '.join(deps))")
-        "$VENV_DIR/bin/pip" install $DEPS
-    else
-        log_info "Using fallback dependency list"
-        "$VENV_DIR/bin/pip" install requests>=2.0 PySide6>=6.5 "hid~=1.0.8" psutil>=5.8.0 opencv-python>=4.12.0.88 pyusb>=1.3.1 pillow>=11.3.0 pyyaml>=6.0.2
+    # Check for requirements.txt with locked versions
+    if [ ! -f "requirements.txt" ]; then
+        log_error "requirements.txt not found. Package is incomplete."
+        exit 1
     fi
 
-    cd - > /dev/null
+    # Create venv and install with exact versions
+    log_info "Creating virtual environment and installing application..."
+    log_info "Using locked dependency versions from requirements.txt"
+
+    # Create venv and install wheel as the actual user
+    if [ -n "$SUDO_USER" ]; then
+        chown -R "$ACTUAL_UID:$ACTUAL_GID" "$APP_DIR"
+        # Create venv with uv (uses requires-python from wheel metadata)
+        sudo -u "$SUDO_USER" HOME="$USER_HOME" uv venv "$VENV_DIR"
+        # Install dependencies with exact versions from requirements.txt
+        sudo -u "$SUDO_USER" HOME="$USER_HOME" uv pip install --python "$VENV_DIR" -r requirements.txt
+
+        # Then install the wheel (will use already installed dependencies)
+        sudo -u "$SUDO_USER" HOME="$USER_HOME" uv pip install --python "$VENV_DIR" --no-deps "$WHEEL_FILE"
+    else
+        # Create venv with uv
+        uv venv "$VENV_DIR"
+
+        # Install dependencies with exact versions
+        uv pip install --python "$VENV_DIR" -r requirements.txt
+
+        # Then install the wheel without dependencies
+        uv pip install --python "$VENV_DIR" --no-deps "$WHEEL_FILE"
+    fi
+
+    # Verify Python version in the venv
+    VENV_PYTHON_VERSION=$("$VENV_DIR/bin/python" --version 2>&1)
+    log_info "Virtual environment created with $VENV_PYTHON_VERSION"
+
+    # Verify installation
+    if [ -f "$VENV_DIR/bin/thermalright-lcd-control-gui" ]; then
+        log_info "Application and all dependencies installed successfully"
+    else
+        log_error "Application scripts not found after installation"
+        exit 1
+    fi
+
+    # Copy gui launcher script
+    if [ -f "usr/bin/$APP_NAME-gui" ]; then
+        cp "usr/bin/$APP_NAME-gui" "$BIN_DIR/"
+
+        # Update paths in the launcher script
+        sed -i "s|@user_home@|$USER_HOME|g" "$BIN_DIR/$APP_NAME-gui"
+
+        chmod 755 "$BIN_DIR/$APP_NAME-gui"
+        log_info "Launcher script installed"
+    fi
+
+    # Copy service launcher script
+    if [ -f "usr/bin/$APP_NAME-service" ]; then
+        cp "usr/bin/$APP_NAME-service" "$BIN_DIR/"
+
+        # Update paths in the launcher script
+        sed -i "s|@user_home@|$USER_HOME|g" "$BIN_DIR/$APP_NAME-service"
+
+        chmod 755 "$BIN_DIR/$APP_NAME-service"
+        log_info "Launcher script installed"
+    fi
 
     # Fix ownership if running as sudo
     if [ -n "$SUDO_USER" ]; then
         chown -R "$ACTUAL_UID:$ACTUAL_GID" "$APP_DIR"
-        chown -R "$ACTUAL_UID:$ACTUAL_GID" "$BIN_DIR/$APP_NAME"
+
         log_info "Fixed ownership for user: $ACTUAL_USER"
     fi
 
-    log_info "Application installed successfully"
+    log_info "Application installed successfully from wheel"
+}
+
+configure_selinux() {
+    # Only run on systems with SELinux
+    if ! command -v selinuxenabled &> /dev/null || ! selinuxenabled; then
+        return
+    fi
+
+    log_info "Configuring SELinux policy for thermalright-lcd-control..."
+
+    # Method 1: Simple context change
+    chcon -R -t bin_t "$VENV_DIR/bin"
+    chcon -R -t lib_t "$VENV_DIR/lib"
+
+    # Method 2: Create a persistent policy (optional, more complex)
+    # This would require audit2allow and a custom policy module
+
+    log_info "SELinux configuration completed"
 }
 
 install_system_service() {
@@ -230,12 +282,7 @@ install_system_service() {
         cp "$APP_NAME.service" "$SYSTEMD_SYSTEM_DIR/"
 
         # Update service file for user installation paths but keep root execution
-        sed -i "s|/opt/thermalright-lcd-control/venv/bin/python|$VENV_DIR/bin/python|g" "$SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
-        sed -i "s|/usr/lib/thermalright-lcd-control|$APP_DIR|g" "$SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
-        sed -i "s|WorkingDirectory=.*|WorkingDirectory=$APP_DIR|g" "$SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
-        sed -i "s|Environment=PYTHONPATH=.*|Environment=PYTHONPATH=$APP_DIR|g" "$SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
-        sed -i "s|@config_file@|$CONFIG_DIR/config|g" "$SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
-
+        sed -i "s|@user_home@|$USER_HOME|g" "$SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
         # Keep User=root for system service
         # Keep After=network.target and WantedBy=multi-user.target for system service
 
@@ -248,7 +295,7 @@ install_system_service() {
 
         log_info "System service installed and enabled"
     else
-        log_error "Service file not found in resources/$APP_NAME.service"
+        log_error "Service file not found in $APP_NAME.service"
         exit 1
     fi
 }
@@ -259,14 +306,14 @@ fix_theme_paths() {
     # Fix paths in config.yaml
     if [ -d "$CONFIG_DIR/config" ]; then
         log_info "Updating paths in config.yaml..."
-        find "$CONFIG_DIR/config" -type f \( -name "*.yaml" -o -name "*.yml" \) -exec sed -i "s|/usr/share/thermalright-lcd-control/|$CONFIG_DIR/|g" {} \;
+        find "$CONFIG_DIR/config" -type f \( -name "*.yaml" -o -name "*.yml" \) -exec sed -i "s|./resources/|$CONFIG_DIR/|g" {} \;
 
     fi
 
     # Fix paths in all preset files in themes/presets directory
     if [ -d "$CONFIG_DIR/themes/presets" ]; then
         log_info "Updating paths in preset files..."
-        find "$CONFIG_DIR/themes/presets" -type f \( -name "*.yaml" -o -name "*.yml" \) -exec sed -i "s|/usr/share/thermalright-lcd-control/|$CONFIG_DIR/|g" {} \;
+        find "$CONFIG_DIR/themes/presets" -type f \( -name "*.yaml" -o -name "*.yml" \) -exec sed -i "s|./resources/|$CONFIG_DIR/|g" {} \;
 
         # Count and report updated files
         PRESET_COUNT=$(find "$CONFIG_DIR/themes/presets" -type f \( -name "*.yaml" -o -name "*.yml" \) | wc -l)
@@ -278,7 +325,7 @@ fix_theme_paths() {
     # Fix paths in any other YAML files in themes directory
     if [ -d "$CONFIG_DIR/themes" ]; then
         log_info "Updating paths in all theme YAML files..."
-        find "$CONFIG_DIR/themes" -type f \( -name "*.yaml" -o -name "*.yml" \) -exec sed -i "s|/usr/share/thermalright-lcd-control/|$CONFIG_DIR/|g" {} \;
+        find "$CONFIG_DIR/themes" -type f \( -name "*.yaml" -o -name "*.yml" \) -exec sed -i "s|./resources/|$CONFIG_DIR/|g" {} \;
     fi
 
     # Fix paths in any JSON files if they exist
@@ -286,7 +333,7 @@ fix_theme_paths() {
         FOUND_JSON=$(find "$CONFIG_DIR/themes" -type f -name "*.json" | wc -l)
         if [ "$FOUND_JSON" -gt 0 ]; then
             log_info "Updating paths in JSON configuration files..."
-            find "$CONFIG_DIR/themes" -type f -name "*.json" -exec sed -i "s|/usr/share/thermalright-lcd-control/|$CONFIG_DIR/|g" {} \;
+            find "$CONFIG_DIR/themes" -type f -name "*.json" -exec sed -i "s|./resources/|$CONFIG_DIR/|g" {} \;
         fi
     fi
 
@@ -335,9 +382,6 @@ install_desktop_entry() {
     if [ -f "$APP_NAME.desktop" ]; then
         cp "$APP_NAME.desktop" "$DESKTOP_DIR/"
 
-        # Update paths in desktop file
-        sed -i "s|Exec=.*|Exec=$BIN_DIR/$APP_NAME|g" "$DESKTOP_DIR/$APP_NAME.desktop"
-
         # Update icon path if it exists in resources
         if [ -f "resources/256x256/icon.png" ]; then
             sed -i "s|Icon=.*|Icon=$APP_DIR/resources/256x256/icon.png|g" "$DESKTOP_DIR/$APP_NAME.desktop"
@@ -356,41 +400,8 @@ install_desktop_entry() {
 
         log_info "Desktop entry installed in $DESKTOP_DIR"
     else
-        log_error "Desktop file not found in resources/$APP_NAME.desktop"
+        log_error "Desktop file not found in APP_NAME.desktop"
         exit 1
-    fi
-}
-
-setup_path() {
-    log_info "Setting up PATH..."
-
-    # Determine shell and shell RC file
-    if [ -n "$SUDO_USER" ]; then
-        USER_SHELL=$(getent passwd "$SUDO_USER" | cut -d: -f7)
-    else
-        USER_SHELL="$SHELL"
-    fi
-
-    if [[ "$USER_SHELL" == *"bash"* ]]; then
-        SHELL_RC="$USER_HOME/.bashrc"
-    elif [[ "$USER_SHELL" == *"zsh"* ]]; then
-        SHELL_RC="$USER_HOME/.zshrc"
-    else
-        SHELL_RC="$USER_HOME/.profile"
-    fi
-
-    if [ -f "$SHELL_RC" ] && ! grep -q "$BIN_DIR" "$SHELL_RC"; then
-        echo "" >> "$SHELL_RC"
-        echo "# Added by thermalright-lcd-control installer" >> "$SHELL_RC"
-        echo "export PATH=\"$BIN_DIR:\$PATH\"" >> "$SHELL_RC"
-
-        # Fix ownership if running as sudo
-        if [ -n "$SUDO_USER" ]; then
-            chown "$ACTUAL_UID:$ACTUAL_GID" "$SHELL_RC"
-        fi
-
-        log_info "Added $BIN_DIR to PATH in $SHELL_RC"
-        log_warn "User may need to restart terminal or run: source $SHELL_RC"
     fi
 }
 
@@ -403,6 +414,7 @@ setup_device() {
 main() {
     log_info "Starting installation of $APP_NAME v$VERSION"
     log_info "Application: user space, Service: system (root)"
+    log_info "Using uv for dependency management"
 
     # Check that script is run with sudo
     check_sudo
@@ -414,7 +426,6 @@ main() {
     install_application
     setup_user_configs
     install_desktop_entry
-    setup_path
 
     setup_device
 
@@ -424,6 +435,7 @@ main() {
 
     if [ $setup_status -eq 0 ]; then
        # Install system service
+       configure_selinux
        install_system_service
 
        log_info ""
@@ -433,6 +445,7 @@ main() {
        log_info "  User: $ACTUAL_USER"
        log_info "  Application: $APP_DIR"
        log_info "  Virtual Env: $VENV_DIR"
+       log_info "  Python Version: Managed by uv (from pyproject.toml)"
        log_info "  Executables: $BIN_DIR"
        log_info "  Config: $CONFIG_DIR"
        log_info "  Service: $SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
@@ -440,15 +453,14 @@ main() {
        log_info "Status:"
        log_info "  ✅ GUI application installed (user execution)"
        log_info "  ✅ System service installed (root execution)"
+       log_info "  ✅ Dependencies managed with uv"
+       log_info "  ✅ Python version auto-detected from pyproject.toml"
        log_info "  ✅ Theme and config paths updated"
        log_info ""
        log_info "Usage:"
        log_info "  GUI: $APP_NAME (as user $ACTUAL_USER)"
        log_info "  Service: sudo systemctl start $APP_NAME"
        log_info "  Status: sudo systemctl status $APP_NAME"
-       log_info ""
-       log_info "Note: User $ACTUAL_USER may need to restart their terminal or run:"
-       log_info "  export PATH=\"$BIN_DIR:\$PATH\""
     else
       log_error "No supported device was found or Device configuration aborted!"
     fi

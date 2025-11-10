@@ -11,23 +11,9 @@ import sys
 
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-
-
-# Add the parent directory to Python path for direct execution
-if __name__ == "__main__" and __package__ is None:
-    # Get the directory containing this file
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Add the parent directory (src) to the Python path
-    parent_dir = os.path.dirname(current_dir)
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
-
-    # Set the package name for relative imports
-    __package__ = 'thermalright_lcd_control'
-
-from .gui.main_window import MediaPreviewUI
-from .gui.utils.usb_detector import USBDeviceDetector
-from .common.supported_devices import SUPPORTED_DEVICES
+from thermalright_lcd_control.gui.main_window import MediaPreviewUI
+from thermalright_lcd_control.gui.utils.usb_detector import USBDeviceDetector
+from thermalright_lcd_control.common.supported_devices import SUPPORTED_DEVICES
 
 def show_error_and_exit(message: str):
     """Display error message and exit application"""

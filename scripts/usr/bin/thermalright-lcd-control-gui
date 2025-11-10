@@ -1,0 +1,8 @@
+#!/bin/bash
+export DESKTOP_FILE="thermalright-lcd-control.desktop"
+export WM_CLASS="thermalright-lcd-control"
+
+VENV_DIR="@user_home@/.local/share/thermalright-lcd-control/venv"
+PYTHONPATH="@user_home@/.local/share/thermalright-lcd-control/:$PYTHONPATH"
+export PYTHONPATH
+exec "$VENV_DIR/bin/python" -m thermalright_lcd_control.main_gui --config @user_home@/.config/thermalright-lcd-control/gui_config.yaml

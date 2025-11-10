@@ -25,8 +25,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtWidgets import (QScrollArea,
                                QGridLayout, QSpacerItem, QSizePolicy, QHBoxLayout)
 
-from ..widgets.thumbnail_widget import ThumbnailWidget
-from ...common.logging_config import get_gui_logger
+from thermalright_lcd_control.gui.widgets.thumbnail_widget import ThumbnailWidget
+from thermalright_lcd_control.common.logging_config import get_gui_logger
 
 
 class MediaTab(QWidget):

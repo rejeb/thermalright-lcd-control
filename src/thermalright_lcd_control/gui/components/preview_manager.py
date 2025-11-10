@@ -9,8 +9,8 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPixmap, QImage
 from PySide6.QtWidgets import QLabel
 
-from ...device_controller.display.config import DisplayConfig, BackgroundType
-from ...device_controller.display.generator import DisplayGenerator
+from thermalright_lcd_control.device_controller.display.config import DisplayConfig, BackgroundType
+from thermalright_lcd_control.device_controller.display.generator import DisplayGenerator
 
 
 class PreviewManager:
