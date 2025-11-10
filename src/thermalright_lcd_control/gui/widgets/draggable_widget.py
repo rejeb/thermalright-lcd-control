@@ -8,9 +8,9 @@ from PySide6.QtCore import Qt, QTimer, QPoint, Signal
 from PySide6.QtGui import QMouseEvent, QColor
 from PySide6.QtWidgets import (QLabel)
 
-from ...device_controller.display.utils import _get_default_font_name
-from ...device_controller.metrics.cpu_metrics import CpuMetrics
-from ...device_controller.metrics.gpu_metrics import GpuMetrics
+from thermalright_lcd_control.device_controller.display.utils import _get_default_font_name
+from thermalright_lcd_control.device_controller.metrics.cpu_metrics import CpuMetrics
+from thermalright_lcd_control.device_controller.metrics.gpu_metrics import GpuMetrics
 
 
 class TextStyleConfig:

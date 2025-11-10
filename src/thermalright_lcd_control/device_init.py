@@ -7,19 +7,8 @@ import sys
 import usb
 import yaml
 
-# Add the parent directory to Python path for direct execution
-if __name__ == "__main__" and __package__ is None:
-    # Get the directory containing this file
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    # Add the parent directory (src) to the Python path
-    parent_dir = os.path.dirname(current_dir)
-    if parent_dir not in sys.path:
-        sys.path.insert(0, parent_dir)
 
-    # Set the package name for relative imports
-    __package__ = 'thermalright_lcd_control'
-
-from .common.supported_devices import SUPPORTED_DEVICES
+from thermalright_lcd_control.common.supported_devices import SUPPORTED_DEVICES
 
 
 def _format_device_string(device: dict):

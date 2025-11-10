@@ -1,7 +1,7 @@
 display:
   rotation: 0
   background:
-    path: /usr/share/thermalright-lcd-control/themes/backgrounds/y010.png
+    path: ./resources/themes/backgrounds/y010.png
     type: image
   date:
     color: '#FFFFFFFF'
@@ -14,7 +14,7 @@ display:
   foreground:
     alpha: 1.0
     enabled: true
-    path: /usr/share/thermalright-lcd-control/themes/foregrounds/{resolution}/006b.png
+    path: ./resources/themes/foregrounds/{resolution}/006b.png
     position:
       x: 0
       y: 0

@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (QScrollArea, QWidget, QVBoxLayout, QHBoxLayout,
                                QSpinBox, QCheckBox, QApplication, QComboBox)
 from PySide6.QtWidgets import QSlider
 
-from ..widgets.draggable_widget import TextStyleConfig
+from thermalright_lcd_control.gui.widgets.draggable_widget import TextStyleConfig
 
 
 class ControlsManager:

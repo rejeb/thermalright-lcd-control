@@ -8,16 +8,15 @@ Themes tab for displaying and selecting theme configurations
 import glob
 import os
 from pathlib import Path
-from typing import Dict, Any
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                QScrollArea, QGridLayout, QPushButton)
 
-from ..widgets.thumbnail_widget import ThumbnailWidget
-from ...common.logging_config import get_gui_logger
-from ...device_controller.display.config_loader import ConfigLoader
+from thermalright_lcd_control.gui.widgets.thumbnail_widget import ThumbnailWidget
+from thermalright_lcd_control.common.logging_config import get_gui_logger
+from thermalright_lcd_control.device_controller.display.config_loader import ConfigLoader
 
 
 class ThemesTab(QWidget):

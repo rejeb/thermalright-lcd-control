@@ -6,16 +6,16 @@
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout
 from PySide6.QtWidgets import (QTabWidget, QFrame, QColorDialog, QMessageBox)
 
-from .components.config_generator import ConfigGenerator
-from .components.controls_manager import ControlsManager
-from .components.preview_manager import PreviewManager
-from .tabs.media_tab import MediaTab
-from .tabs.themes_tab import ThemesTab
-from .utils.config_loader import load_config
-from .widgets.draggable_widget import *
-from ..common.logging_config import get_gui_logger
-from ..device_controller.metrics.cpu_metrics import CpuMetrics
-from ..device_controller.metrics.gpu_metrics import GpuMetrics
+from thermalright_lcd_control.gui.components.config_generator import ConfigGenerator
+from thermalright_lcd_control.gui.components.controls_manager import ControlsManager
+from thermalright_lcd_control.gui.components.preview_manager import PreviewManager
+from thermalright_lcd_control.gui.tabs.media_tab import MediaTab
+from thermalright_lcd_control.gui.tabs.themes_tab import ThemesTab
+from thermalright_lcd_control.gui.utils.config_loader import load_config
+from thermalright_lcd_control.gui.widgets.draggable_widget import *
+from thermalright_lcd_control.common.logging_config import get_gui_logger
+from thermalright_lcd_control.device_controller.metrics.cpu_metrics import CpuMetrics
+from thermalright_lcd_control.device_controller.metrics.gpu_metrics import GpuMetrics
 
 
 class MediaPreviewUI(QMainWindow):

@@ -9,10 +9,10 @@ from threading import Timer
 from typing import Tuple
 from PIL import Image, ImageSequence
 
-from .config import BackgroundType, DisplayConfig
-from ..metrics.cpu_metrics import CpuMetrics
-from ..metrics.gpu_metrics import GpuMetrics
-from ...common.logging_config import get_service_logger
+from thermalright_lcd_control.device_controller.display.config import BackgroundType, DisplayConfig
+from thermalright_lcd_control.device_controller.metrics.cpu_metrics import CpuMetrics
+from thermalright_lcd_control.device_controller.metrics.gpu_metrics import GpuMetrics
+from thermalright_lcd_control.common.logging_config import get_service_logger
 
 
 
@@ -31,6 +31,7 @@ class FrameManager:
     # Supported video formats
     SUPPORTED_VIDEO_FORMATS = ['.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv', '.wmv', '.m4v']
     DEFAULT_FRAME_DURATION = 2.0
+    REFRESH_METRICS_INTERVAL = 5.0
     def __init__(self, config: DisplayConfig):
         self.config = config
     def __init__(self, config: DisplayConfig):
@@ -205,7 +206,7 @@ class FrameManager:
         """Start the metrics update thread every second"""
         self.logger.info("Starting metrics update thread ...")
         self.metrics_running = True
-        self.metrics_thread = threading.Timer(interval=2.0,function=self._metrics_update_loop)
+        self.metrics_thread = threading.Timer(interval=self.REFRESH_METRICS_INTERVAL,function=self._metrics_update_loop)
         self.metrics_thread.start()
         self.logger.debug("Metrics update thread started")
 
@@ -221,7 +222,7 @@ class FrameManager:
         new_metrics = self._get_current_metric()
         self.current_metrics = new_metrics
         if self.metrics_running:
-            self.metrics_thread = threading.Timer(interval=2.0, function=self._metrics_update_loop)
+            self.metrics_thread = threading.Timer(interval=self.REFRESH_METRICS_INTERVAL, function=self._metrics_update_loop)
             self.metrics_thread.start()
 
     def _get_current_metric(self):

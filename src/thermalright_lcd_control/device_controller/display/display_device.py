@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 import pathlib
+import threading
 import time
 from abc import abstractmethod, ABC
 
 import usb
 from PIL import Image
 
-from .config_loader import ConfigLoader
-from .generator import DisplayGenerator
-from ...common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.display.config_loader import ConfigLoader
+from thermalright_lcd_control.device_controller.display.generator import DisplayGenerator
+from thermalright_lcd_control.common.logging_config import LoggerConfig
 
 
 class DisplayDevice(ABC):
@@ -20,6 +21,7 @@ class DisplayDevice(ABC):
     pid = None
     width = None
     height = None
+    mode = None
 
     def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
         self.vid = vid
@@ -101,16 +103,19 @@ class DisplayDevice(ABC):
             frame_packets.append(self.report_id + chunk)
         return frame_packets
 
-    def run(self):
-        self.logger.info("Display device running")
-        while True:
-            img, delay_time = self._get_generator().get_frame_with_duration()
-            header = self.get_header()
-            img_bytes = header + self._encode_image(img)
-            frame_packets = self._prepare_frame_packets(img_bytes)
-            for packet in frame_packets:
-                self.send_packet(packet)
-            time.sleep(delay_time)
+    def start(self):
+        self.logger.info(f"Display device ({self.vid}:{self.pid}-{self.width}x{self.height}) running ({self.mode} mode)")
+        self._run()
+
+    def _run(self):
+
+        img, delay_time = self._get_generator().get_frame_with_duration()
+        header = self.get_header()
+        img_bytes = header + self._encode_image(img)
+        frame_packets = self._prepare_frame_packets(img_bytes)
+        for packet in frame_packets:
+            self.send_packet(packet)
+        threading.Timer(interval=delay_time, function=self._run).start()
 
     @abstractmethod
     def send_packet(self, packet: bytes):

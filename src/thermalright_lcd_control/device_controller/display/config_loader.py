@@ -6,8 +6,8 @@ from typing import Dict, Any, Tuple
 
 import yaml
 
-from .config import DisplayConfig, BackgroundType, MetricConfig, TextConfig
-from ...common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.display.config import DisplayConfig, BackgroundType, MetricConfig, TextConfig
+from thermalright_lcd_control.common.logging_config import LoggerConfig
 
 
 class ConfigLoader:

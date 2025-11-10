@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/usr/lib/thermalright-lcd-control
-Environment=PYTHONPATH=/usr/lib/thermalright-lcd-control
-ExecStart=/opt/thermalright-lcd-control/venv/bin/python -m thermalright_lcd_control.service --config @config_file@
+WorkingDirectory=@user_home@/.local/share/thermalright-lcd-control
+Environment=PYTHONPATH=@user_home@/.local/share/thermalright-lcd-control
+ExecStart=thermalright-lcd-control-service
 Restart=always
 RestartSec=10
 StandardOutput=journal

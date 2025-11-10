@@ -6,8 +6,8 @@ from typing import Optional, List, Dict, Any
 
 from PIL import ImageDraw, ImageFont
 
-from .config import TextConfig, MetricConfig, DisplayConfig
-from ...common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.display.config import TextConfig, MetricConfig, DisplayConfig
+from thermalright_lcd_control.common.logging_config import LoggerConfig
 
 # Import font manager from current package
 try:

@@ -12,7 +12,7 @@ from PySide6.QtGui import QPixmap, QMovie, QImage
 from PySide6.QtMultimediaWidgets import QVideoWidget
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QStackedWidget
 
-from ...common.logging_config import get_gui_logger
+from thermalright_lcd_control.common.logging_config import get_gui_logger
 
 
 class ThumbnailWidget(QWidget):

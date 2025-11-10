@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from ...common.logging_config import get_gui_logger
+from thermalright_lcd_control.common.logging_config import get_gui_logger
 
 
 def get_default_config():

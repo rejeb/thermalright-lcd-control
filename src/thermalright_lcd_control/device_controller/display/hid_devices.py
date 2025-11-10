@@ -3,11 +3,11 @@ from abc import ABC
 
 import hid
 
-from .display_device import DisplayDevice
+from thermalright_lcd_control.device_controller.display.display_device import DisplayDevice
 
 
 class HidDevice(DisplayDevice, ABC):
-
+    mode = "HID"
     def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
         super().__init__(vid, pid, chunk_size, width, height, config_dir, *args, **kwargs)
         self.dev = hid.Device(vid, pid)
@@ -27,7 +27,6 @@ class HidDevice(DisplayDevice, ABC):
 class DisplayDevice04185304(HidDevice):
     W, H = 480, 480
     VID, PID = 0x0418, 0x5304
-
     def __init__(self, config_dir: str):
         super().__init__(self.VID, self.PID, 512, self.W, self.H, config_dir)
 

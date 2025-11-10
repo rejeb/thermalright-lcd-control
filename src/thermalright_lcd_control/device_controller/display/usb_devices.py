@@ -1,4 +1,5 @@
 # usb_devices.py
+import threading
 import time
 from abc import ABC
 from typing import Optional, Tuple
@@ -8,7 +9,7 @@ import usb.core
 import usb.util
 from PIL import Image
 
-from .display_device import DisplayDevice
+from thermalright_lcd_control.device_controller.display.display_device import DisplayDevice
 
 
 def _find_bulk_out_ep(dev: usb.core.Device) -> Tuple[int, int]:
@@ -43,6 +44,7 @@ class UsbDevice(DisplayDevice, ABC):
     Implements endpoint discovery and a chunked write method.
     Subclasses should implement `get_header()` and (if needed) override `_encode_image`.
     """
+    mode = "USB BULK"
 
     def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
         # chunk_size here is the *application* chunk we split payload into
@@ -184,23 +186,21 @@ class DisplayDevice87AD70DB320(UsbDevice):
         return out.tobytes()
 
     # --- run: bulk framing (no HID report-id, no generic chunker) ---
-    def run(self):
-        self.logger.info("Display device (87AD:70DB) running (bulk mode)")
-        while True:
-            img, delay_time = self._get_generator().get_frame_with_duration()
-            payload = self._encode_image(img)
-            # header
-            self.dev.write(self.ep_out, self._hdr_frame, timeout=2000)
-            # payload in 512B slices
-            off = 0
-            for _ in range(self.PACKETS_PER_FRAME):
-                chunk = payload[off:off + self.PKT]
-                # chunks are exactly 512B by construction
-                self.dev.write(self.ep_out, chunk, timeout=5000)
-                off += self.PKT
-            # commit (ZLP)
-            self._zlp()
-            time.sleep(delay_time)
+    def _run(self):
+        img, delay_time = self._get_generator().get_frame_with_duration()
+        payload = self._encode_image(img)
+        # header
+        self.dev.write(self.ep_out, self._hdr_frame, timeout=2000)
+        # payload in 512B slices
+        off = 0
+        for _ in range(self.PACKETS_PER_FRAME):
+            chunk = payload[off:off + self.PKT]
+            # chunks are exactly 512B by construction
+            self.dev.write(self.ep_out, chunk, timeout=5000)
+            off += self.PKT
+        # commit (ZLP)
+        self._zlp()
+        threading.Timer(interval=delay_time, function=self._run).start()
 
     # --- graceful shutdown consistent with EOS probe ---
     def end_stream(self):
@@ -307,30 +307,28 @@ class DisplayDevice87AD70DB480(UsbDevice):
 
         return jpeg_data
 
-    def run(self):
+    def _run(self):
         """Main display loop - send JPEG frames to device"""
-        self.logger.info("Display device (87AD:70DB-480) running (JPEG mode)")
 
-        while True:
-            img, delay_time = self._get_generator().get_frame_with_duration()
-            jpeg_payload = self._encode_image(img)
+        img, delay_time = self._get_generator().get_frame_with_duration()
+        jpeg_payload = self._encode_image(img)
 
-            # Create header with actual payload size
-            header = self._make_header(cmd=2, payload_len=len(jpeg_payload))
+        # Create header with actual payload size
+        header = self._make_header(cmd=2, payload_len=len(jpeg_payload))
 
-            # Send header
-            self.dev.write(self.ep_out, header, timeout=2000)
+        # Send header
+        self.dev.write(self.ep_out, header, timeout=2000)
 
-            # Send JPEG payload in chunks
-            self.send_packet(jpeg_payload)
+        # Send JPEG payload in chunks
+        self.send_packet(jpeg_payload)
 
-            # Send zero-length packet as frame delimiter (if needed)
-            try:
-                self._zlp()
-            except Exception:
-                pass  # Some devices may not need ZLP
+        # Send zero-length packet as frame delimiter (if needed)
+        try:
+            self._zlp()
+        except Exception:
+            pass  # Some devices may not need ZLP
 
-            time.sleep(delay_time)
+        threading.Timer(interval=delay_time, function=self._run).start()
 
     def end_stream(self):
         """Send end-of-stream marker"""

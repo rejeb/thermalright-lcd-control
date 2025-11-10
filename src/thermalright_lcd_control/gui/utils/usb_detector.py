@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any
 import usb.core
 import yaml
 
-from ...common.logging_config import get_gui_logger
+from thermalright_lcd_control.common.logging_config import get_gui_logger
 
 
 class USBDeviceDetector:
