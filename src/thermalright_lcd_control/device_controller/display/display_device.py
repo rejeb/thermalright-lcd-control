@@ -2,7 +2,7 @@
 # Copyright © 2025 Rejeb Ben Rejeb
 import pathlib
 import threading
-import time
+
 from abc import abstractmethod, ABC
 
 import usb

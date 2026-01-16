@@ -30,7 +30,7 @@ class MediaPreviewUI(QMainWindow):
         title_info = (f"{hex(detected_device['vid'])}-{hex(detected_device['pid'])} | "
                       f"{detected_device['width']}x{detected_device['height']}")
 
-        self.setWindowTitle(f"ThermalRight LCD Control:  {title_info}")
+        self.setWindowTitle(f"ThermalRight LCD Control: {title_info}")
 
         self.detected_device = detected_device
         self.dev_width = detected_device['width'] if detected_device else 320
