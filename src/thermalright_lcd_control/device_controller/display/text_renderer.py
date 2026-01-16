@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 
+import re
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -51,7 +52,7 @@ class TextRenderer:
             # If it's already a number, format it
             if isinstance(value, (int, float)):
                 # Check if the format string contains decimal formatting
-                if '.0f' in format_string or '.1f' in format_string or '.2f' in format_string:
+                if re.search(r"\.\d+f", format_string):
                     return format_string.format(value=value)
                 else:
                     # For other format strings, convert to string first
@@ -78,11 +79,11 @@ class TextRenderer:
             value = metrics.get(config.name)
             if value is None:
                 continue
-
+            
             # Format text safely
             try:
                 # Use safe formatting for the value
-                formatted_value = self._safe_format_value(value, "{value}", config.name)
+                formatted_value = self._safe_format_value(value, f"{{value:.{config.precision}f}}" , config.name)
 
                 # If the format string expects a float formatting and we have a numeric value
                 if '{value:.0f}' in config.format_string or '{value:.1f}' in config.format_string:

@@ -8,7 +8,7 @@ from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (QScrollArea, QWidget, QVBoxLayout, QHBoxLayout,
                                QGroupBox, QLabel, QLineEdit, QPushButton,
                                QSpinBox, QCheckBox, QApplication, QComboBox)
-from PySide6.QtWidgets import QSlider
+from PySide6.QtWidgets import QSlider, QSpacerItem
 
 from thermalright_lcd_control.gui.widgets.draggable_widget import TextStyleConfig
 
@@ -31,6 +31,7 @@ class ControlsManager:
         self.show_time_checkbox = None
         self.metric_checkboxes = {}
         self.metric_label_inputs = {}
+        self.metric_precision_inputs = {}
         self.metric_unit_inputs = {}
 
     def create_controls_widget(self) -> QScrollArea:
@@ -106,13 +107,10 @@ class ControlsManager:
 
         return opacity_group
 
-
-
     def _on_opacity_slider_changed(self, value):
         """Handle slider value change"""
         self.opacity_value_label.setText(f"{value}%")
         self.parent.on_opacity_text_changed(str(value))
-
 
     def _create_text_style_controls(self) -> QGroupBox:
         """Create text style controls"""
@@ -151,24 +149,26 @@ class ControlsManager:
         overlay_layout = QVBoxLayout(overlay_group)
 
         # Date/Time controls
-        datetime_layout = QHBoxLayout()
+        date_time_group_layout = QGroupBox("Date/Time")
+        datetime_layout = QHBoxLayout(date_time_group_layout)
         self.show_date_checkbox = QCheckBox("Show Date")
+        self.show_date_checkbox.setStyleSheet(self._get_smart_checkbox_style())
         self.show_date_checkbox.setChecked(True)
         self.show_date_checkbox.toggled.connect(self.parent.on_show_date_changed)
 
         self.show_time_checkbox = QCheckBox("Show Time")
+        self.show_time_checkbox.setStyleSheet(self._get_smart_checkbox_style())
         self.show_time_checkbox.setChecked(False)
         self.show_time_checkbox.toggled.connect(self.parent.on_show_time_changed)
 
         datetime_layout.addWidget(self.show_date_checkbox)
         datetime_layout.addWidget(self.show_time_checkbox)
-        overlay_layout.addLayout(datetime_layout)
-
+        overlay_layout.addWidget(date_time_group_layout)
+        
         # Metric controls
-        cpu_metrics_layout = QHBoxLayout()
-        cpu_metrics_layout.addWidget(QLabel("CPU Metrics:"))
-        gpu_metrics_layout = QHBoxLayout()
-        gpu_metrics_layout.addWidget(QLabel("GPU Metrics:"))
+        # CPU Metrics
+        cpu_metrics_group_layout = QGroupBox("CPU Metrics")
+        cpu_metrics_layout = QVBoxLayout(cpu_metrics_group_layout)
 
         cpu_metric_labels = {
             "cpu_temperature": "Temp",
@@ -176,52 +176,80 @@ class ControlsManager:
             "cpu_frequency": "Frequency"
         }
 
+        for metric_name, display_name in cpu_metric_labels.items():
+            metric_layout = self._create_metric_layout(display_name, metric_name)
+            cpu_metrics_layout.addLayout(metric_layout)
+
+        overlay_layout.addWidget(cpu_metrics_group_layout)
+
+        # GPU Metrics
+        gpu_metrics_group_layout = QGroupBox("GPU Metrics")
+        gpu_metrics_layout = QVBoxLayout(gpu_metrics_group_layout)
+
         gpu_metric_labels = {
             "gpu_temperature": "Temp",
             "gpu_usage": "Usage",
             "gpu_frequency": "Frequency"
         }
 
-        for metric_name, display_name in cpu_metric_labels.items():
-            metric_layout = self._create_metric_layout(display_name, metric_name)
-            cpu_metrics_layout.addLayout(metric_layout)
-
         for metric_name, display_name in gpu_metric_labels.items():
             metric_layout = self._create_metric_layout(display_name, metric_name)
             gpu_metrics_layout.addLayout(metric_layout)
 
-        overlay_layout.addLayout(cpu_metrics_layout)
-        overlay_layout.addLayout(gpu_metrics_layout)
+        overlay_layout.addWidget(gpu_metrics_group_layout)
+        
         return overlay_group
 
     def _create_metric_layout(self, display_name, metric_name):
         metric_layout = QHBoxLayout()
+        spacer = QSpacerItem(20, 0)
+
         # Checkbox
         checkbox = QCheckBox(display_name)
         checkbox.setChecked(False)
         checkbox.setStyleSheet(self._get_smart_checkbox_style())
-        checkbox.toggled.connect(lambda checked, name=metric_name: self.parent.on_metric_toggled(name, checked))
+        checkbox.setFixedWidth(120)
+        checkbox.toggled.connect(lambda checked, name=metric_name: self.parent.on_metric_toggled(name, checked, label_input, precision_input, unit_input))
         self.metric_checkboxes[metric_name] = checkbox
         metric_layout.addWidget(checkbox)
+
         # Label input
         metric_layout.addWidget(QLabel("Label:"))
         label_input = QLineEdit()
         label_input.setPlaceholderText(self.metric_widgets[metric_name]._get_default_label())
         label_input.textChanged.connect(
             lambda text, name=metric_name: self.parent.on_metric_label_changed(name, text))
-        label_input.setMaximumWidth(60)
+        label_input.setEnabled(False)
+        label_input.setMaximumWidth(80)
         self.metric_label_inputs[metric_name] = label_input
         metric_layout.addWidget(label_input)
+        metric_layout.addItem(spacer)
+
+        # Precision
+        metric_layout.addWidget(QLabel("Precision:"))
+        precision_input = QSpinBox()
+        precision_input.setMaximum(3)
+        precision_input.setValue(self.metric_widgets[metric_name]._get_default_precision())
+        precision_input.textChanged.connect(
+            lambda text, name=metric_name: self.parent.on_metric_precision_changed(name, text))
+        precision_input.setEnabled(False)
+        precision_input.setMaximumWidth(80)
+        self.metric_precision_inputs[metric_name] = precision_input
+        metric_layout.addWidget(precision_input)
+        metric_layout.addItem(spacer)
+
         # Unit input
         metric_layout.addWidget(QLabel("Unit:"))
         unit_input = QLineEdit()
         unit_input.setPlaceholderText(self.metric_widgets[metric_name]._get_default_unit())
         unit_input.textChanged.connect(
             lambda text, name=metric_name: self.parent.on_metric_unit_changed(name, text))
-        unit_input.setMaximumWidth(40)
+        unit_input.setEnabled(False)
+        unit_input.setMaximumWidth(50)
         self.metric_unit_inputs[metric_name] = unit_input
         metric_layout.addWidget(unit_input)
         metric_layout.addStretch()
+
         return metric_layout
 
     def _create_action_controls(self) -> QGroupBox:
@@ -261,8 +289,7 @@ class ControlsManager:
         """)
 
     def _get_smart_checkbox_style(self):
-        """Style intelligent qui détecte automatiquement le thème"""
-        # Détecter si on est en mode sombre
+        """Automatically detects if in light/dark mode"""
         palette = QApplication.instance().palette()
         is_dark = palette.color(QPalette.ColorRole.Window).lightness() < 128
 

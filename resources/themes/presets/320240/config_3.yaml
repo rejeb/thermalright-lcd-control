@@ -28,6 +28,7 @@ display:
       position:
         x: 37
         y: 103
+      precision: 2
       unit: °C
     - color: '#FFFFFFFF'
       enabled: true
@@ -38,6 +39,7 @@ display:
       position:
         x: 259
         y: 103
+      precision: 2
       unit: °C
     - color: '#FFFFFFFF'
       enabled: true
@@ -48,6 +50,7 @@ display:
       position:
         x: 89
         y: 33
+      precision: 2
       unit: MHZ
     - color: '#FFFFFFFF'
       enabled: true
@@ -58,6 +61,7 @@ display:
       position:
         x: 90
         y: 171
+      precision: 2
       unit: MHZ
     enabled: true
   time:

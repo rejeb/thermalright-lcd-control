@@ -40,6 +40,7 @@ class ConfigLoader:
         return MetricConfig(
             name=metric_data["name"],
             label=metric_data.get("label", ""),
+            precision=metric_data.get("precision", 2),
             position=(
                 metric_data["position"]["x"],
                 metric_data["position"]["y"]

@@ -151,6 +151,7 @@ class MetricWidget(DraggableWidget):
         self.enabled = False
         self.custom_label = ""
         self.custom_unit = ""
+        self.custom_precision = 2
         self.format = "{label}{value}{unit}"
         self.display_text = self.format.format(
             label=self.format_label(), value=self.get_value(), unit=self.get_unit()
@@ -181,7 +182,7 @@ class MetricWidget(DraggableWidget):
             self.move(*positions[self.metric_name])
 
     def set_custom_label(self, label):
-        """Définir un label personnalisé"""
+        """Define a custom label"""
         self.custom_label = label
         self.display_text = self.format.format(
             label=self.format_label(), value=self.get_value(), unit=self.get_unit()
@@ -190,8 +191,17 @@ class MetricWidget(DraggableWidget):
         self.update_display()
 
     def set_custom_unit(self, unit):
-        """Définir une unité personnalisée"""
+        """Define a custom unit"""
         self.custom_unit = unit
+        self.display_text = self.format.format(
+            label=self.format_label(), value=self.get_value(), unit=self.get_unit()
+        )
+        self.setText(self.display_text)
+        self.update_display()
+
+    def set_custom_precision(self, precision):
+        """Define a custom precision"""
+        self.custom_precision = precision
         self.display_text = self.format.format(
             label=self.format_label(), value=self.get_value(), unit=self.get_unit()
         )
@@ -202,19 +212,23 @@ class MetricWidget(DraggableWidget):
         return f"{self.custom_label}: " if self.custom_label else ""
 
     def get_label(self):
-        """Obtenir le label (personnalisé ou par défaut)"""
+        """Get the label (custom or default)"""
         return self.custom_label if self.custom_label else ""
 
     def get_unit(self):
-        """Obtenir l'unité (personnalisée ou par défaut)"""
+        """Get the unit (custom or default)"""
         return self.custom_unit if self.custom_unit else ""
 
+    def get_precision(self):
+        """Get the precision (custom or default)"""
+        return self.custom_precision if self.custom_precision is not None else 2
+
     def get_value(self):
-        value = self.metric_instance.get_metric_value(self.metric_name)
+        value = self.metric_instance.get_metric_value(self.metric_name, self.get_precision())
         return value if value is not None else "N/A"
 
     def _get_default_label(self):
-        """Obtenir le label par défaut basé sur le metric_name"""
+        """Get the default label based on the metric_name"""
         defaults = {
             "cpu_temperature": "CPU",
             "gpu_temperature": "GPU",
@@ -226,7 +240,7 @@ class MetricWidget(DraggableWidget):
         return defaults.get(self.metric_name, "")
 
     def _get_default_unit(self):
-        """Obtenir l'unité par défaut basée sur le metric_name"""
+        """Get the default unit based on the metric_name"""
         defaults = {
             "cpu_temperature": "°",
             "gpu_temperature": "°",
@@ -234,5 +248,17 @@ class MetricWidget(DraggableWidget):
             "gpu_usage": "%",
             "cpu_frequency": "MHZ",
             "gpu_frequency": "MHZ"
+        }
+        return defaults.get(self.metric_name, "")
+
+    def _get_default_precision(self):
+        """Get the default precision based on the metric_name"""
+        defaults = {
+            "cpu_temperature": 0,
+            "gpu_temperature": 0,
+            "cpu_usage": 2,
+            "gpu_usage": 2,
+            "cpu_frequency": 2,
+            "gpu_frequency": 2
         }
         return defaults.get(self.metric_name, "")

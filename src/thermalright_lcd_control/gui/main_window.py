@@ -23,6 +23,7 @@ class MediaPreviewUI(QMainWindow):
     def __init__(self, config_file_path=None, detected_device: dict = None):
         super().__init__()
         self.logger = get_gui_logger()
+
         # Initialize configuration and device
         self.config = load_config(config_file_path)
         self.cpu_metric = CpuMetrics()
@@ -61,7 +62,7 @@ class MediaPreviewUI(QMainWindow):
         window_config = self.config.get('window', {})
         default_width = window_config.get('default_width', 1200)
         default_height = window_config.get('default_height', 600)
-
+        
         min_width = max(window_config.get('min_width', 800), self.dev_width + 580)
         min_height = max(window_config.get('min_height', 600), self.dev_height + 200)
 
@@ -178,7 +179,6 @@ class MediaPreviewUI(QMainWindow):
         self.tab_widget = QTabWidget()
 
         # Themes tab (moved to first position)
-
         themes_dir = f"{self.config.get('paths', {}).get('themes_dir', './themes')}/{self.dev_width}{self.dev_height}"
         self.themes_tab = ThemesTab(themes_dir, dev_width=self.dev_width, dev_height=self.dev_height)
         self.themes_tab.theme_selected.connect(self.on_theme_selected)
@@ -343,8 +343,10 @@ class MediaPreviewUI(QMainWindow):
                 label = metric_config.get('label', '')
                 self.logger.debug(f"metric: {metric_name} Label: {label}")
                 unit = metric_config.get('unit', '')
+                precision = metric_config.get('precision', 2)
                 widget.set_custom_label(label)
                 widget.set_custom_unit(unit)
+                widget.set_custom_precision(precision)
 
                 # Apply font size and color (create a temporary style for this metric)
                 font_size = metric_config.get('font_size')
@@ -393,9 +395,13 @@ class MediaPreviewUI(QMainWindow):
                     checkbox = self.controls_manager.metric_checkboxes[metric_name]
                     checkbox.setChecked(widget.enabled)
 
-                if hasattr(self.controls_manager, 'metric_unit_inputs') and widget.enabled:
+                if hasattr(self.controls_manager, 'metric_label_inputs') and widget.enabled:
                     label_input = self.controls_manager.metric_label_inputs[metric_name]
                     label_input.setText(widget.get_label())
+
+                if hasattr(self.controls_manager, 'metric_precision_inputs') and widget.enabled:
+                    label_input = self.controls_manager.metric_precision_inputs[metric_name]
+                    label_input.setValue(widget.get_precision())
 
                 # Update unit input
                 if hasattr(self.controls_manager, 'metric_unit_inputs') and widget.enabled:
@@ -489,20 +495,34 @@ class MediaPreviewUI(QMainWindow):
         if self.date_widget:
             self.date_widget.set_enabled(checked)
 
+    def on_date_format_changed(self, text):
+        """Handle date format change"""
+        if self.date_widget:
+            self.date_widget.update_format(text)
+
     def on_show_time_changed(self, checked):
         """Handle show time checkbox change"""
         if self.time_widget:
             self.time_widget.set_enabled(checked)
 
-    def on_metric_toggled(self, metric_name, checked):
+    def on_metric_toggled(self, metric_name, checked, label_input, precision_input, unit_input):
         """Handle metric checkbox toggle"""
         if metric_name in self.metric_widgets:
             self.metric_widgets[metric_name].set_enabled(checked)
+
+            label_input.setEnabled(checked)
+            precision_input.setEnabled(checked)
+            unit_input.setEnabled(checked)
 
     def on_metric_label_changed(self, metric_name, text):
         """Handle metric label change"""
         if metric_name in self.metric_widgets:
             self.metric_widgets[metric_name].set_custom_label(text.strip())
+
+    def on_metric_precision_changed(self, metric_name, text):
+        """Handle metric precision change"""
+        if metric_name in self.metric_widgets:
+            self.metric_widgets[metric_name].set_custom_precision(text.strip())
 
     def on_metric_unit_changed(self, metric_name, text):
         """Handle metric unit change"""
