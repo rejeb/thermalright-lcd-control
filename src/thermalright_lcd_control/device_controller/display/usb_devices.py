@@ -58,16 +58,17 @@ class UsbDevice(DisplayDevice, ABC):
         self.dev: Optional[usb.core.Device] = usb.core.find(idVendor=vid, idProduct=pid)
         if self.dev is None:
             raise RuntimeError(f"USB device {vid:04x}:{pid:04x} not found")
+        # Detach all kernel drivers
+        cfg = self.dev.get_active_configuration()
+        try:
+            for intf in cfg:
+                if self.dev.is_kernel_driver_active(intf.bInterfaceNumber):
+                        self.dev.detach_kernel_driver(intf.bInterfaceNumber)
+        except (NotImplementedError, usb.core.USBError):
+            pass
 
         # Claim interface and discover BULK OUT endpoint
         self.iface, self.ep_out = _find_bulk_out_ep(self.dev)
-
-        # Detach kernel driver if needed, then claim
-        try:
-            if self.dev.is_kernel_driver_active(self.iface):
-                self.dev.detach_kernel_driver(self.iface)
-        except (NotImplementedError, usb.core.USBError):
-            pass
 
         usb.util.claim_interface(self.dev, self.iface)
 
