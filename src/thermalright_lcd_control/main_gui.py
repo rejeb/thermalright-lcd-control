@@ -50,7 +50,6 @@ def main(config_file=None):
     # Check for supported device presence
     detector = USBDeviceDetector(config_file)
     connected_device = detector.find_connected_device()
-    print(connected_device)
 
     if connected_device is None:
         error_message = (
