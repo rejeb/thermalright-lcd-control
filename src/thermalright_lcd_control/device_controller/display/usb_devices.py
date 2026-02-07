@@ -58,12 +58,13 @@ class UsbDevice(DisplayDevice, ABC):
         self.dev: Optional[usb.core.Device] = usb.core.find(idVendor=vid, idProduct=pid)
         if self.dev is None:
             raise RuntimeError(f"USB device {vid:04x}:{pid:04x} not found")
-        # Detach all kernel drivers
-        cfg = self.dev.get_active_configuration()
+
+        # Try detach all kernel drivers
         try:
+            cfg = self.dev.get_active_configuration()
             for intf in cfg:
                 if self.dev.is_kernel_driver_active(intf.bInterfaceNumber):
-                        self.dev.detach_kernel_driver(intf.bInterfaceNumber)
+                    self.dev.detach_kernel_driver(intf.bInterfaceNumber)
         except (NotImplementedError, usb.core.USBError):
             pass
 

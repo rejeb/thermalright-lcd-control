@@ -1,8 +1,6 @@
 import threading
-import time
 
 import numpy as np
-import usb
 from PIL import Image
 from usb.core import USBError
 
@@ -19,13 +17,13 @@ class DisplayDevice04023922(UsbDevice):
     FLAG_IN = 0x80
     FLAG_OUT = 0x00
 
-    def __init__(self, config_dir: str, bulk_size: int, width: int = 320, heigh: int = 320):
+    def __init__(self, config_dir: str, bulk_size: int, width: int = 320, height: int = 320):
         super().__init__(self.VID,  # device vid
                          self.PID,  # device pid
                          bulk_size,
                          # the size in bytes, in wireshark it corresponds to the value of the property usb.data_len.
                          width,  # the width of the screen
-                         heigh,  # the height of the screen
+                         height,  # the height of the screen
                          config_dir  # just keep as it
                          )
 
@@ -42,10 +40,10 @@ class DisplayDevice04023922(UsbDevice):
         tur_cdb = bytearray(6)
         data = self._write(cdb=tur_cdb, data=b'')
         if data[12] == 0x00:
-            print(f"Handshake successful")
+            self.logger.info("Handshake successful")
             return
         elif data[12] == 0x02:
-            print(f"Check condition received during handshake")
+            self.logger.info(f"Check condition received during handshake")
             return
         else:
             raise USBError("Handshake failed")
