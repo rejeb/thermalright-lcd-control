@@ -272,13 +272,13 @@ class CpuMetrics(Metrics):
             "frequency": self.get_frequency(),
         }
 
-    def get_metric_value(self, metric_name) -> str:
+    def get_metric_value(self, metric_name, precision) -> str:
         if metric_name == "cpu_temperature":
-            v = self.get_temperature(); return f"{v}" if v is not None else "N/A"
+            v = self.get_temperature(); return f"{v:.{precision}f}" if v is not None else "N/A"
         if metric_name == "cpu_usage":
-            v = self.get_usage_percentage(); return f"{v}" if v is not None else "N/A"
+            v = self.get_usage_percentage(); return f"{v:.{precision}f}" if v is not None else "N/A"
         if metric_name == "cpu_frequency":
-            v = self.get_frequency(); return f"{v}" if v is not None else "N/A"
+            v = self.get_frequency(); return f"{v:.{precision}f}" if v is not None else "N/A"
         return "N/A"
 
     def __str__(self):

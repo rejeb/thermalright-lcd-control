@@ -58,7 +58,7 @@ class Metrics(ABC):
         pass
 
     @abstractmethod
-    def get_metric_value(self, metric_name) -> Any:
+    def get_metric_value(self, metric_name, precision) -> Any:
         pass
 
     @abstractmethod

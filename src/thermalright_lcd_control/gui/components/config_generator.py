@@ -58,6 +58,8 @@ class ConfigGenerator:
                 if widget.enabled:  # Only enabled metrics
                     label = widget.get_label()
                     unit = widget.get_unit()
+                    precision = widget.get_precision()
+
                     default_format = metric_format_defaults.get(metric_name, "{label}{value}{unit}")
 
                     metric_config = {
@@ -68,7 +70,8 @@ class ConfigGenerator:
                         "font_size": text_style.font_size,
                         "color": self._qcolor_to_hex(text_style.color),
                         "format_string": default_format,
-                        "unit": unit
+                        "unit": unit,
+                        "precision": precision
                     }
                     config_data["display"]["metrics"]["configs"].append(metric_config)
 
@@ -87,6 +90,7 @@ class ConfigGenerator:
 
             services_config_path = self._get_service_config_file_path(preview_manager.preview_width,
                                                                       preview_manager.preview_height)
+            
             self._save_config_file(services_config_path, config_data)
 
             if not preview:

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=Linux Thermal rigth lcd display control
-Comment=Linux Thermal rigth lcd display control
+Name=Thermalright LCD Control
+Comment=Thermalright LCD Control
 Exec=thermalright-lcd-control-gui
 Icon=thermalright-lcd-control
 Terminal=false

@@ -8,12 +8,11 @@ Thumbnail widget for displaying media file previews
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal, QSize
-from PySide6.QtGui import QPixmap, QMovie, QImage
+from PySide6.QtGui import QPixmap, QMovie, QImage, QPalette
 from PySide6.QtMultimediaWidgets import QVideoWidget
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QStackedWidget
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QStackedWidget, QApplication
 
 from thermalright_lcd_control.common.logging_config import get_gui_logger
-
 
 class ThumbnailWidget(QWidget):
     """Custom widget to display a thumbnail with filename"""
@@ -41,6 +40,10 @@ class ThumbnailWidget(QWidget):
             }
         """)
 
+        palette = QApplication.instance().palette()
+        is_dark = palette.color(QPalette.ColorRole.Window).lightness() < 128
+        label_color = "#FFF" if is_dark else "#333"
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
         layout.setSpacing(2)
@@ -57,13 +60,13 @@ class ThumbnailWidget(QWidget):
         self.thumb_label = QLabel()
         self.thumb_label.setFixedSize(110, 70)
         self.thumb_label.setAlignment(Qt.AlignCenter)
-        self.thumb_label.setStyleSheet("""
-            QLabel {
+        self.thumb_label.setStyleSheet(f"""
+            QLabel {{
                 background-color: white;
                 border: 1px solid #ccc;
                 border-radius: 3px;
-                color: #333;
-            }
+                color: {label_color};
+            }}
         """)
 
         # Video widget for videos
@@ -86,13 +89,14 @@ class ThumbnailWidget(QWidget):
         self.name_label = QLabel(file_name)
         self.name_label.setAlignment(Qt.AlignCenter)
         self.name_label.setWordWrap(True)
-        self.name_label.setStyleSheet("""
-            QLabel {
+
+        self.name_label.setStyleSheet(f"""
+            QLabel {{
                 background-color: transparent;
                 border: none;
                 font-size: 10px;
-                color: #333;
-            }
+                color: {label_color};
+            }}
         """)
 
         layout.addWidget(self.content_container)
