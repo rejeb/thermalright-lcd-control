@@ -41,6 +41,7 @@ and added the option to select a collection of images to cycle through on the di
 | 0416:5302 | 320x240           |
 | 0418:5304 | 480x480           |
 | 87AD:70DB | 320x320,480x480   |
+| 0402:3922 | 320x320,...       |
 
 ## Installation
 
