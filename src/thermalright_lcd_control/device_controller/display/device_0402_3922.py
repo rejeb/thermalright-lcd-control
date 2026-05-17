@@ -1,10 +1,10 @@
-import threading
-
-import numpy as np
-from PIL import Image
+import pyvips
 from usb.core import USBError
 
-from thermalright_lcd_control.device_controller.display.usb_devices import UsbDevice
+from thermalright_lcd_control.device_controller.display.usb_devices import (
+    UsbDevice,
+    encode_rgb565_be,
+)
 
 
 class DisplayDevice04023922(UsbDevice):
@@ -14,17 +14,18 @@ class DisplayDevice04023922(UsbDevice):
     VID, PID = 0x0402, 0x3922
     COMMAND = 0xF5
     TAG = 0
-    FLAG_IN = 0x80
     FLAG_OUT = 0x00
 
-    def __init__(self, config_dir: str, bulk_size: int, width: int = 320, height: int = 320):
+    def __init__(self, config_dir: str, bulk_size: int, width: int = 320, height: int = 320,
+                 config_file: str = None):
         super().__init__(self.VID,  # device vid
                          self.PID,  # device pid
                          bulk_size,
                          # the size in bytes, in wireshark it corresponds to the value of the property usb.data_len.
                          width,  # the width of the screen
                          height,  # the height of the screen
-                         config_dir  # just keep as it
+                         config_dir,  # just keep as it
+                         config_file=config_file
                          )
 
     def reset(self):
@@ -43,7 +44,7 @@ class DisplayDevice04023922(UsbDevice):
             self.logger.info("Handshake successful")
             return
         elif data[12] == 0x02:
-            self.logger.info(f"Check condition received during handshake")
+            self.logger.info("Check condition received during handshake")
             return
         else:
             raise USBError("Handshake failed")
@@ -86,58 +87,9 @@ class DisplayDevice04023922(UsbDevice):
     def get_header(self) -> bytes:
         return bytes.fromhex("")
 
-    def start(self):
-        # start = time.time()
-        # while time.time() - start < 30:
-        #     try:
-        #         self._handshake()
-        #         break
-        #     except USBError as e:
-        #         print(f"Handshake failed, retrying... {e}")
-        #         time.sleep(0.5)
-
-        self.logger.info(
-            f"Display device ({self.vid}:{self.pid}-{self.width}x{self.height}) running ({self.mode} mode)")
-        self._run()
-
     # --- encoding: RGB565 big-endian, row-major, no per-row separators ---
-    def _encode_image(self, img: Image) -> bytes:
-        if img.size != (self.width, self.height):
-            img = img.resize((self.width, self.height), Image.LANCZOS)
-        rgb = img.convert("RGB")
-        arr = np.array(rgb, dtype=np.uint8)
-        r = arr[..., 0].astype(np.uint16)
-        g = arr[..., 1].astype(np.uint16)
-        b = arr[..., 2].astype(np.uint16)
-        v = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-        hi = (v >> 8).astype(np.uint8)
-        lo = (v & 0xFF).astype(np.uint8)
-        out = np.empty((self.height, self.width * 2), dtype=np.uint8)
-        out[..., 0::2] = hi  # BE
-        out[..., 1::2] = lo
-        return out.tobytes()
-
-    def _run(self):
-        img, delay_time = self._get_generator().get_frame_with_duration()
-        image_data = self._encode_image(img)
-        off = 0
-        total = len(image_data)
-        idx = 0
-        while off < total:
-            n = min(self.chunk_size, total - off)
-            chunk = image_data[off:off + n]
-            cdb = bytearray(16)
-            cdb[0] = self.COMMAND  # command
-            cdb[1] = 0x01
-            cdb[2] = 0x01
-            cdb[3] = idx
-            cdb[12:16] = len(chunk).to_bytes(4, byteorder='little')  # data length
-            data = self._write(cdb=cdb, data=chunk)
-            if data[12] != 0x00:
-                raise USBError("Failed to send data")
-            off += n
-            idx += 1
-        threading.Timer(interval=delay_time, function=self._run).start()
+    def _encode_image(self, img: pyvips.Image) -> bytes:
+        return encode_rgb565_be(img, self.width, self.height)
 
 
 class DisplayDevice04023922320320(DisplayDevice04023922):
@@ -149,13 +101,3 @@ class DisplayDevice04023922320320(DisplayDevice04023922):
 
     def __init__(self, config_dir: str):
         super().__init__(config_dir, self.CHUNK_SIZE, self.W, self.H)
-
-    @staticmethod
-    def info() -> dict:
-        return {
-            "class_name": f"{DisplayDevice04023922320320.__module__}.{DisplayDevice04023922320320.__name__}",
-            "width": DisplayDevice04023922320320.W,
-            "height": DisplayDevice04023922320320.H,
-            "vid": DisplayDevice04023922320320.VID,
-            "pid": DisplayDevice04023922320320.PID,
-        }

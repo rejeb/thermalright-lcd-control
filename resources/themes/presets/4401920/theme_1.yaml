@@ -1,0 +1,84 @@
+display:
+  background:
+    path: ./resources/themes/backgrounds/{resolution}/theme_1.png
+    type: image
+  date:
+    bold: true
+    color: '#ffffffff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 48
+    italic: false
+    position:
+      x: 156
+      y: 1576
+    text: ''
+  foreground:
+    alpha: 1.0
+    enabled: true
+    path: ./resources/themes/foregrounds/{resolution}/theme_1.png
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs:
+    - bold: true
+      color: '#ffffffff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 48
+      format_string: '{value}{unit}'
+      italic: false
+      name: cpu_temperature
+      position:
+        x: 238
+        y: 1750
+      precision: 0
+      unit: °C
+    - bold: true
+      color: '#ffffffff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 48
+      format_string: '{value}{unit}'
+      italic: false
+      name: gpu_temperature
+      position:
+        x: 238
+        y: 1840
+      precision: 0
+      unit: °C
+    enabled: true
+  rotation: 0
+  texts:
+  - bold: true
+    color: '#ffffffff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 48
+    italic: false
+    position:
+      x: 34
+      y: 1751
+    text: CPU
+  - bold: true
+    color: '#ffffffff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 48
+    italic: false
+    position:
+      x: 32
+      y: 1841
+    text: GPU
+  time:
+    bold: true
+    color: '#ffffffff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 96
+    italic: false
+    position:
+      x: 95
+      y: 1364
+    text: ''

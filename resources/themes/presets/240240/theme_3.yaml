@@ -1,0 +1,87 @@
+display:
+  background:
+    path: ./resources/themes/backgrounds/{resolution}/theme_3.png
+    type: image
+  date:
+    bold: true
+    color: '#808080ff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 20
+    italic: false
+    position:
+      x: 50
+      y: 103
+    text: ''
+  foreground:
+    alpha: 1.0
+    enabled: true
+    path: ./resources/themes/foregrounds/{resolution}/theme_3.png
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs:
+    - bold: true
+      color: '#808080ff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 18
+      format_string: '{value}{unit}'
+      italic: false
+      name: cpu_temperature
+      position:
+        x: 18
+        y: 181
+      precision: 0
+      unit: °C
+    - bold: true
+      color: '#808080ff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 16
+      format_string: '{value}{unit}'
+      italic: false
+      name: cpu_frequency
+      position:
+        x: 149
+        y: 183
+      precision: 0
+      unit: MHz
+    - bold: true
+      color: '#808080ff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 18
+      format_string: '{value}{unit}'
+      italic: false
+      name: cpu_usage
+      position:
+        x: 80
+        y: 181
+      precision: 0
+      unit: '%'
+    enabled: true
+  rotation: 0
+  texts:
+  - bold: true
+    color: '#808080ff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 18
+    italic: false
+    position:
+      x: 22
+      y: 149
+    text: CPU
+  time:
+    bold: true
+    color: '#808080ff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 48
+    italic: false
+    position:
+      x: 58
+      y: 50
+    text: ''

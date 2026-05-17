@@ -1,18 +1,19 @@
 # usb_devices.py
-import threading
 import time
 from abc import ABC
-from typing import Optional, Tuple
 
-import numpy as np
+import pyvips
 import usb.core
 import usb.util
-from PIL import Image
 
 from thermalright_lcd_control.device_controller.display.display_device import DisplayDevice
+from thermalright_lcd_control.device_controller.display.image_encoder import (
+    encode_jpeg,
+    encode_rgb565_be,
+)
 
 
-def _find_bulk_out_ep(dev: usb.core.Device) -> Tuple[int, int]:
+def _find_bulk_out_ep(dev: usb.core.Device) -> tuple[int, int]:
     """
     Return (interface_number, ep_out_address) for the first interface that exposes a BULK OUT endpoint.
     Prefer vendor-specific interfaces (class 255) if present.
@@ -46,16 +47,18 @@ class UsbDevice(DisplayDevice, ABC):
     """
     mode = "USB BULK"
 
-    def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
+    def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args,
+                 config_file: str = None, **kwargs):
         # chunk_size here is the *application* chunk we split payload into
-        super().__init__(vid, pid, chunk_size, width, height, config_dir, *args, **kwargs)
+        super().__init__(vid, pid, chunk_size, width, height, config_dir, *args,
+                         config_file=config_file, **kwargs)
         self.vid = vid
         self.pid = pid
         self.width = width
         self.height = height
         self.config_dir = config_dir
 
-        self.dev: Optional[usb.core.Device] = usb.core.find(idVendor=vid, idProduct=pid)
+        self.dev: usb.core.Device | None = usb.core.find(idVendor=vid, idProduct=pid)
         if self.dev is None:
             raise RuntimeError(f"USB device {vid:04x}:{pid:04x} not found")
 
@@ -76,17 +79,31 @@ class UsbDevice(DisplayDevice, ABC):
         # Device-specific header (subclass provides)
         self.header = self.get_header()
 
+    def close(self) -> None:
+        """Release the USB interface and dispose resources. Idempotent."""
+        dev = getattr(self, "dev", None)
+        if dev is not None:
+            usb.util.release_interface(dev, self.iface)
+            usb.util.dispose_resources(dev)
+            self.dev = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
     def __del__(self):
+        # Best-effort safety net only; explicit close() is the contract.
         try:
-            if self.dev:
-                usb.util.release_interface(self.dev, self.iface)
-                usb.util.dispose_resources(self.dev)
+            self.close()
         except Exception:
             pass
 
     # --- Encoding ---
 
-    def _encode_image(self, img: Image) -> bytes:
+    def _encode_image(self, img: pyvips.Image) -> bytes:
         return super()._encode_image(img)
 
     # --- USB transfer ---
@@ -99,115 +116,116 @@ class UsbDevice(DisplayDevice, ABC):
         if not self.dev:
             raise RuntimeError("USB device not open")
 
-        CHUNK = self.chunk_size if getattr(self, "chunk_size", None) else 16 * 1024
+        CHUNK = self.chunk_size
 
         offset = 0
         total = len(packet)
         while offset < total:
             n = min(CHUNK, total - offset)
-            # ✅ no iface positional arg here
             written = self.dev.write(self.ep_out, packet[offset:offset + n], timeout=5000)
             if written != n:
-                raise IOError(f"Short write {written}/{n} at offset {offset}")
+                raise OSError(f"Short write {written}/{n} at offset {offset}")
             offset += n
 
     def _zlp(self, timeout_ms: int = 1000):
         """Send a zero-length packet on OUT (commit marker)."""
         self.dev.write(self.ep_out, b"", timeout=timeout_ms)
 
+    _BULK_CHUNK = 16 * 1024  # 16 KiB — a single large transfer can reset the device
+
+    def _bulk_send(self, frame: bytes, timeout_ms: int = 5000) -> None:
+        """Send frame in 16 KiB chunks + conditional ZLP (only when 512-byte aligned)."""
+        for offset in range(0, len(frame), self._BULK_CHUNK):
+            self.dev.write(self.ep_out, frame[offset:offset + self._BULK_CHUNK], timeout=timeout_ms)
+        if len(frame) % 512 == 0:
+            self._zlp(timeout_ms)
+
+    @classmethod
+    def info(cls) -> dict:
+        return {
+            "class_name": f"{cls.__module__}.{cls.__name__}",
+            "width": cls.W,
+            "height": cls.H,
+            "vid": cls.VID,
+            "pid": cls.PID,
+        }
+
 
 # -----------------------------
-# ChiZhu Tech 87AD:70DB device
+# ChiZhu Tech 87AD:70DB devices
 # -----------------------------
 
-class DisplayDevice87AD70DB320(UsbDevice):
+class ChiZhuDisplayDevice(UsbDevice, ABC):
     """
-    ChiZhu Tech USBDISPLAY (VID=0x87AD, PID=0x70DB), 320x320
-    Protocol (confirmed):
-      - Header: 64 bytes
-          0x00..03 : 12 34 56 78
-          0x04..07 : 03 00 00 00  (cmd = 3)
-          0x08..0B : width  (LE u32) = 320
-          0x0C..0F : height (LE u32) = 320
-          0x38..3B : mode   (LE u32) = 2
-          0x3C..3F : payload_len (LE u32) = 204800
-      - Payload: 320*320*2 = 204,800 bytes, RGB565 **big-endian**
-      - Transfer order per frame: header(64) → 400×(512B) → ZLP
-      - EOS: single header(len=0, mode=2) + ZLP, then a short quiet wait
+    ChiZhu Tech USBDISPLAY (VID=0x87AD, PID=0x70DB).
+
+    Shared 64-byte header / framing protocol for all resolutions:
+        0x00..03 : 12 34 56 78  (magic)
+        0x04..07 : cmd          (LE u32 — 3 = RGB565, 2 = JPEG)
+        0x08..0B : width        (LE u32)
+        0x0C..0F : height       (LE u32)
+        0x38..3B : mode         (LE u32 = 2)
+        0x3C..3F : payload_len  (LE u32)
+    Per frame: header(64) + payload, sent in 16 KiB chunks + conditional ZLP.
+    EOS: header with payload_len=0 + ZLP, then a quiet wait.
+
+    Concrete subclasses set ``W, H``; the encoding base sets ``CMD`` and
+    ``_encode_image``.
     """
-    W, H = 320, 320
     VID, PID = 0x87AD, 0x70DB
-    PKT = 512
-    PAYLOAD_BYTES = W * H * 2  # 204,800
-    PACKETS_PER_FRAME = PAYLOAD_BYTES // PKT  # 400
+    CMD: int = 0          # set by the encoding base (_ChiZhuRgb565 / _ChiZhuJpeg)
+    _CHUNK_SIZE = 16384   # unused for frame writes (see _bulk_send), kept for the base
 
-    def __init__(self, config_dir: str, start_wait: float = 2.0, stop_wait: float = 2.0):
-        # app-level “chunk_size” not used for the actual frame writes; we still set it
-        super().__init__(self.VID, self.PID, self.PKT, self.W, self.H, config_dir)
+    def __init__(self, config_dir: str, start_wait: float = 2.0, stop_wait: float = 2.0,
+                 config_file: str = None):
+        super().__init__(self.VID, self.PID, self._CHUNK_SIZE, self.W, self.H, config_dir,
+                         config_file=config_file)
         self.start_wait = start_wait
         self.stop_wait = stop_wait
-        # Build standard headers now
-        self._hdr_frame = self._make_header(cmd=3, mode=2, payload_len=self.PAYLOAD_BYTES)
-        self._hdr_eos = self._make_header(cmd=3, mode=2, payload_len=0)
         time.sleep(max(self.start_wait, 0.0))  # quiet window like the working flow
 
-    def _make_header(self, cmd: int, mode: int, payload_len: int) -> bytes:
+    def _make_header(self, cmd: int, payload_len: int, mode: int = 2) -> bytes:
         hdr = bytearray(64)
         hdr[0:4] = bytes.fromhex("12 34 56 78")
         hdr[4:8] = int(cmd).to_bytes(4, "little")
         hdr[8:12] = int(self.width).to_bytes(4, "little")
         hdr[12:16] = int(self.height).to_bytes(4, "little")
-        hdr[0x38:0x3C] = int(mode).to_bytes(4, "little")  # mode = 2
-        hdr[0x3C:0x40] = int(payload_len).to_bytes(4, "little")  # bytes in payload
+        hdr[0x38:0x3C] = int(mode).to_bytes(4, "little")
+        hdr[0x3C:0x40] = int(payload_len).to_bytes(4, "little")
         return bytes(hdr)
 
     def get_header(self) -> bytes:
-        # The base constructor calls this; make sure it returns *something* valid.
-        # We’ll ignore it in run() and send our own _hdr_frame each time.
-        try:
-            return self._hdr_frame
-        except AttributeError:
-            # during super().__init__ call, build the normal frame header lazily
-            return self._make_header(cmd=3, mode=2, payload_len=self.PAYLOAD_BYTES)
+        # Base ctor stores this, but _run() builds its own header per frame.
+        return self._make_header(self.CMD, 0)
 
-    # --- encoding: RGB565 big-endian, row-major, no per-row separators ---
-    def _encode_image(self, img: Image) -> bytes:
-        if img.size != (self.width, self.height):
-            img = img.resize((self.width, self.height), Image.LANCZOS)
-        rgb = img.convert("RGB")
-        arr = np.array(rgb, dtype=np.uint8)
-        r = arr[..., 0].astype(np.uint16)
-        g = arr[..., 1].astype(np.uint16)
-        b = arr[..., 2].astype(np.uint16)
-        v = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3)
-        hi = (v >> 8).astype(np.uint8)
-        lo = (v & 0xFF).astype(np.uint8)
-        out = np.empty((self.height, self.width * 2), dtype=np.uint8)
-        out[..., 0::2] = hi  # BE
-        out[..., 1::2] = lo
-        return out.tobytes()
+    def _run(self) -> float:
+        gen = self._get_generator()
 
-    # --- run: bulk framing (no HID report-id, no generic chunker) ---
-    def _run(self):
-        img, delay_time = self._get_generator().get_frame_with_duration()
-        payload = self._encode_image(img)
-        # header
-        self.dev.write(self.ep_out, self._hdr_frame, timeout=2000)
-        # payload in 512B slices
-        off = 0
-        for _ in range(self.PACKETS_PER_FRAME):
-            chunk = payload[off:off + self.PKT]
-            # chunks are exactly 512B by construction
-            self.dev.write(self.ep_out, chunk, timeout=5000)
-            off += self.PKT
-        # commit (ZLP)
-        self._zlp()
-        threading.Timer(interval=delay_time, function=self._run).start()
+        self._encode_cache.sync_generator(id(gen))
+        # Advance timing first, then key the cache on the frame we actually
+        # landed on (current_frame_index), NOT a pre-advance peek: peeking
+        # before the (possibly multi-ms) sync_overlay/compose can straddle a
+        # frame boundary and store the encoded frame under the wrong index,
+        # poisoning the cache (mirrors RenderEngine._tick).
+        base = gen.get_base_frame()
+        frame_idx = gen.current_frame_index
+        delay_time = gen.frame_duration
+        # Refresh the overlay (metrics/clock) BEFORE reading the cache so a
+        # fully-cached looping/static clip still picks up metric/clock changes.
+        version = gen.sync_overlay()
 
-    # --- graceful shutdown consistent with EOS probe ---
+        payload = self._encode_cache.get(frame_idx, version)
+        if payload is None:
+            payload = self._encode_image(gen.compose_device_frame(base))
+            self._encode_cache.set_frame_count(gen.frame_count)
+            self._encode_cache.store(frame_idx, version, payload)
+
+        self._bulk_send(self._make_header(self.CMD, len(payload)) + payload)
+        return delay_time
+
     def end_stream(self):
         try:
-            self.dev.write(self.ep_out, self._hdr_eos, timeout=1000)
+            self.dev.write(self.ep_out, self._make_header(self.CMD, 0), timeout=1000)
             self._zlp()
         except Exception:
             pass
@@ -222,143 +240,38 @@ class DisplayDevice87AD70DB320(UsbDevice):
             finally:
                 usb.util.dispose_resources(self.dev)
 
-    @staticmethod
-    def info() -> dict:
-        return {
-            "class_name": f"{DisplayDevice87AD70DB320.__module__}.{DisplayDevice87AD70DB320.__name__}",
-            "width": DisplayDevice87AD70DB320.W,
-            "height": DisplayDevice87AD70DB320.H,
-            "vid": DisplayDevice87AD70DB320.VID,
-            "pid": DisplayDevice87AD70DB320.PID,
-        }
+
+class _ChiZhuRgb565(ChiZhuDisplayDevice, ABC):
+    """RGB565 big-endian raw payload (cmd = 3)."""
+    CMD = 3
+
+    def _encode_image(self, img: pyvips.Image) -> bytes:
+        return encode_rgb565_be(img, self.width, self.height)
 
 
-# -----------------------------
-# ChiZhu Tech 87AD:70DB device (480x480 JPEG variant)
-# -----------------------------
+class _ChiZhuJpeg(ChiZhuDisplayDevice, ABC):
+    """JPEG-compressed payload (cmd = 2)."""
+    CMD = 2
 
-class DisplayDevice87AD70DB480(UsbDevice):
-    """
-    ChiZhu Tech USBDISPLAY (VID=0x87AD, PID=0x70DB), 480x480 JPEG variant
-    Protocol (based on capture analysis):
-      - Header: Variable structure starting with magic bytes
-          0x00..03 : 12 34 56 78 (magic)
-          0x04..07 : 02 00 00 00 (cmd = 2)
-          0x08..0B : width  (LE u32) = 480 (0x01e0)
-          0x0C..0F : height (LE u32) = 480 (0x01e0)
-          + padding and payload size info
-      - Payload: JPEG compressed image data
-      - Transfer: header + JPEG data in chunks
-    """
-
-    W, H = 480, 480
-    VID, PID = 0x87AD, 0x70DB
-
-    def __init__(self, config_dir: str, start_wait: float = 2.0, stop_wait: float = 2.0, jpeg_quality: int = 85):
-        # Use bulk transfer with reasonable chunk size
-        super().__init__(self.VID, self.PID, 16384, self.W, self.H, config_dir)
-        self.start_wait = start_wait
-        self.stop_wait = stop_wait
+    def __init__(self, config_dir: str, start_wait: float = 2.0, stop_wait: float = 2.0,
+                 jpeg_quality: int = 85, config_file: str = None):
         self.jpeg_quality = jpeg_quality
-        time.sleep(max(self.start_wait, 0.0))
+        super().__init__(config_dir, start_wait, stop_wait, config_file=config_file)
 
-    def _make_header(self, cmd: int, payload_len: int) -> bytes:
-        """
-        Create header based on captured packet structure.
-        Analysis shows:
-        - Bytes 0-3: 12 34 56 78 (magic)
-        - Bytes 4-7: 02 00 00 00 (command = 2)
-        - Bytes 8-11: e0 01 00 00 (width = 480)
-        - Bytes 12-15: e0 01 00 00 (height = 480)
-        - Bytes 16-55: all zeros
-        - Bytes 56-59: 02 00 00 00 (mode = 2)
-        - Bytes 60-63: payload length (4230 in capture = 0x1086)
-        """
-        hdr = bytearray(64)
-        hdr[0:4] = bytes.fromhex("12 34 56 78")  # Magic bytes
-        hdr[4:8] = int(cmd).to_bytes(4, "little")  # Command (2 for JPEG mode)
-        hdr[8:12] = int(self.width).to_bytes(4, "little")  # Width = 480
-        hdr[12:16] = int(self.height).to_bytes(4, "little")  # Height = 480
-        # Bytes 16-55 are zeros (already initialized)
-        hdr[56:60] = int(2).to_bytes(4, "little")  # Mode field (from capture)
-        hdr[60:64] = int(payload_len).to_bytes(4, "little")  # Actual payload length
-        return bytes(hdr)
+    def _encode_image(self, img: pyvips.Image) -> bytes:
+        return encode_jpeg(img, self.width, self.height, jpeg_quality=self.jpeg_quality)
 
-    def get_header(self) -> bytes:
-        """Return a default header - actual headers are created per frame"""
-        return self._make_header(cmd=2, payload_len=0)
 
-    def _encode_image(self, img: Image) -> bytes:
-        """
-        Encode image as JPEG instead of raw RGB565.
-        This matches the JPEG data seen in the packet capture.
-        """
-        if img.size != (self.width, self.height):
-            img = img.resize((self.width, self.height), Image.LANCZOS)
+class DisplayDevice87AD70DB320(_ChiZhuRgb565):
+    """320x320 — RGB565 big-endian."""
+    W, H = 320, 320
 
-        # Convert to RGB if not already
-        if img.mode != 'RGB':
-            img = img.convert('RGB')
 
-        # Encode as JPEG
-        import io
-        jpeg_buffer = io.BytesIO()
-        img.save(jpeg_buffer, format='JPEG', quality=self.jpeg_quality, optimize=True)
-        jpeg_data = jpeg_buffer.getvalue()
-        jpeg_buffer.close()
+class DisplayDevice87AD70DB480(_ChiZhuJpeg):
+    """480x480 — JPEG."""
+    W, H = 480, 480
 
-        return jpeg_data
 
-    def _run(self):
-        """Main display loop - send JPEG frames to device"""
-
-        img, delay_time = self._get_generator().get_frame_with_duration()
-        jpeg_payload = self._encode_image(img)
-
-        # Create header with actual payload size
-        header = self._make_header(cmd=2, payload_len=len(jpeg_payload))
-
-        # Send header
-        self.dev.write(self.ep_out, header, timeout=2000)
-
-        # Send JPEG payload in chunks
-        self.send_packet(jpeg_payload)
-
-        # Send zero-length packet as frame delimiter (if needed)
-        try:
-            self._zlp()
-        except Exception:
-            pass  # Some devices may not need ZLP
-
-        threading.Timer(interval=delay_time, function=self._run).start()
-
-    def end_stream(self):
-        """Send end-of-stream marker"""
-        try:
-            # Send header with zero payload length
-            end_header = self._make_header(cmd=2, payload_len=0)
-            self.dev.write(self.ep_out, end_header, timeout=1000)
-            self._zlp()
-        except Exception:
-            pass
-        time.sleep(max(self.stop_wait, 0.0))
-
-    def close(self):
-        """Clean shutdown"""
-        try:
-            self.end_stream()
-        finally:
-            try:
-                usb.util.release_interface(self.dev, self.iface)
-            finally:
-                usb.util.dispose_resources(self.dev)
-
-    @staticmethod
-    def info() -> dict:
-        return {
-            "class_name": f"{DisplayDevice87AD70DB480.__module__}.{DisplayDevice87AD70DB480.__name__}",
-            "width": DisplayDevice87AD70DB480.W,
-            "height": DisplayDevice87AD70DB480.H,
-            "vid": DisplayDevice87AD70DB480.VID,
-            "pid": DisplayDevice87AD70DB480.PID,
-        }
+class DisplayDevice87AD70DB640(_ChiZhuJpeg):
+    """640x480 — JPEG."""
+    W, H = 640, 480

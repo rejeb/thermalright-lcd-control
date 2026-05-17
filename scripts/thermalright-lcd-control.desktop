@@ -2,7 +2,7 @@
 Type=Application
 Name=Thermalright LCD Control
 Comment=Thermalright LCD Control
-Exec=thermalright-lcd-control-gui
+Exec=thermalright-lcd-control-app
 Icon=thermalright-lcd-control
 Terminal=false
 Categories=Utility;Application;

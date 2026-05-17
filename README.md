@@ -4,13 +4,15 @@ A Linux application for controlling Thermalright LCD displays with an intuitive 
 
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
-![version](https://img.shields.io/badge/version-1.3.1-green.svg)
+![version](https://img.shields.io/badge/version-2.0.0-green.svg)
 
 ## Overview
 
 Thermalright LCD Control provides an easy-to-use interface for managing your Thermalright LCD display on Linux systems.
 
-The application features both a desktop GUI and a background service for seamless device control.
+Since version 2.0, the application is a single desktop app: the GUI embeds the device controller, so there is no
+separate root service anymore. Device access is granted through udev rules, and the app can start automatically with
+your session (minimized to the system tray).
 
 I performed reverse engineering on the Thermalright Windows application to understand its internal mechanisms.
 
@@ -29,10 +31,35 @@ and added the option to select a collection of images to cycle through on the di
 
 ## Features
 
-- 🖥️ **User-friendly GUI** - Modern interface for device configuration
-- ⚙️ **Background service** - Automatic device management
-- 🎨 **Theme support** - Customizable display themes and backgrounds
-- 📋 **System integration** - Native Linux desktop integration
+- 🖥️ **User-friendly GUI** - Modern native Qt interface with light/dark theme
+- ⚙️ **Single-app architecture** - The device controller runs inside the app; no root service needed (udev rules grant
+  device access)
+- 🔌 **Multi-device support** - Several displays can be connected and driven at the same time, each with its own
+  configuration; a per-device tab bar lets you switch between them, and edits are saved automatically before switching
+- 🔎 **Automatic device detection** - Connected devices are detected on the fly: plug or unplug a display and it appears
+  or disappears in the GUI without restarting the app (its configuration is kept for when it comes back)
+- ➕ **Add devices without code** - Register a new device from the GUI (or a small YAML file) using the generic,
+  data-driven driver: pick transport, encoding and header format — no Python required. Known devices pre-fill the form
+  automatically
+- ⚡ **Fast device switching** - Cached thumbnails and per-device render engines make switching between devices and
+  themes near-instant
+- 🎨 **Theme support** - Customizable display themes with bundled presets, per-resolution backgrounds and foregrounds
+  (the matching foreground is auto-selected for your resolution)
+- 🖼️ **Rich media backgrounds** - Images, animated GIFs and videos; imported media is automatically resized to your
+  screen resolution, and bundled video backgrounds are downloaded on demand
+- 🧩 **Widget editor** - Drag-and-drop metric, clock, date and text widgets with per-widget font, size, bold/italic,
+  color and precision (multi-selection supported)
+- 🔄 **Display rotation** - 0°/90°/180°/270° orientation with rotation-aware backgrounds and foregrounds
+- 📊 **Hardware & OS metrics** - all displayable as widgets, grouped by device:
+    - **CPU**: temperature, usage, frequency
+    - **GPU**: temperature, usage, frequency (AMD, Nvidia and Intel)
+    - **Memory**: RAM usage, RAM used/available (GB), swap usage
+    - **Disk**: filesystem usage, read/write throughput (MB/s)
+    - **Network**: download/upload throughput (MB/s)
+    - **System**: uptime, load average, process count
+- 🔤 **Font management** - Use any installed system font (plus bundled fallbacks) in your themes
+- 📋 **System integration** - Tray icon, session autostart (starts minimized), desktop notifications; rendering pauses
+  while the window is hidden to save CPU
 
 ## Supported devices
 
@@ -42,6 +69,9 @@ and added the option to select a collection of images to cycle through on the di
 | 0418:5304 | 480x480           |
 | 87AD:70DB | 320x320,480x480   |
 | 0402:3922 | 320x320,...       |
+
+If your device is not in the list, you can most likely add it yourself without writing any code, thanks to the generic
+device support: see the [Add new device](#add-new-device) section.
 
 ## Installation
 
@@ -63,14 +93,14 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 2. **Download** the `.tar.gz` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/1.3.1/thermalright-lcd-control-1.3.1.tar.gz -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/2.0.0/thermalright-lcd-control-2.0.0.tar.gz -P /tmp/
    ```
 
 3. **Untar** the archive file:
    ```bash
    cd /tmp
    
-   tar -xvf thermalright-lcd-control-1.3.1.tar.gz
+   tar -xvf thermalright-lcd-control-2.0.0.tar.gz
    ```
 
 4. **Install** application:
@@ -84,19 +114,17 @@ That's it! The application is now installed. You can see the default theme displ
 
 ## Troubleshooting
 
-If your device is 0416:5302 and nothing is displayed:
-- Check service status to see if it is running
-- Try restart service
-- Check service logs located in /var/log/thermalright-lcd-control.log
+If nothing is displayed on your device:
 
-If your device is one of the other devices, contributions are welcome.
-Here some tips to help you:
-- Check service status to see if it is running
-- Check service logs located in /var/log/thermalright-lcd-control.log
-- If the device is not working then this possibly mean that header value is not correct.
-See [Add new device](#add-new-device) section to fix header generation.
-- If the device is working but image is not good, this means that the image is not encoded correctly.
-See [Add new device](#add-new-device) section to fix image encoding by overriding method _`_encode_image`.
+- Make sure the application is running (check the system tray)
+- Check the application logs located in `~/.local/state/thermalright-lcd-control/` (also reachable from the tray menu
+  via "Open Logs")
+- Make sure the udev rules were installed (`/etc/udev/rules.d/99-thermalright.rules`) and re-plug the device
+
+If the device is detected but the display stays black, the frame header is probably not correct for your device.
+If an image is displayed but looks blurry or scrambled, the image encoding does not match your device.
+In both cases, see the [Add new device](#add-new-device) section: with the generic device support you can adjust the
+header and encoding from the GUI without touching any code.
 
 ## Usage
 
@@ -105,21 +133,14 @@ See [Add new device](#add-new-device) section to fix image encoding by overridin
 - **From Applications Menu**: Search for "Thermalright LCD Control" in your application launcher
 - **From Terminal**: Run `thermalright-lcd-control`
 
-### System Service
+### Autostart and system tray
 
-The background service starts automatically after installation. You can manage it using:
+The application starts automatically with your session (minimized to the system tray) and keeps driving the display in
+the background. Closing the window minimizes to the tray instead of quitting; use the tray menu to reopen the window,
+open the logs or quit the application.
 
-# Check service status
-
-sudo systemctl status thermalright-lcd-control.service
-
-# Restart service
-
-sudo systemctl restart thermalright-lcd-control.service
-
-# Stop service
-
-sudo systemctl stop thermalright-lcd-control.service
+While the window is hidden, the on-screen preview is paused to keep CPU usage minimal — the device itself keeps
+updating.
 
 ## System Requirements
 
@@ -130,8 +151,16 @@ sudo systemctl stop thermalright-lcd-control.service
 
 ## Add new device
 
-In [HOWTO.md](doc/HOWTO.md) I detail all the steps I gone through to find out how myy device works and all steps to add
-a new device.
+There are two ways to add support for a new device:
+
+- **Generic device (recommended, no code)**: describe the device (transport, image encoding, frame header) either
+  directly from the GUI with the "+" button in the header, or in a small `device_<id>.yaml` file. The data-driven
+  generic driver does the rest.
+- **Native device (Python code)**: implement a dedicated device class, for protocols the generic driver cannot
+  express.
+
+In [HOWTO.md](doc/HOWTO.md) I detail all the steps I went through to find out how my device works (USB capture and
+protocol reverse engineering), and how to add a new device using either approach.
 
 ## License
 

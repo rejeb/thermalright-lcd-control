@@ -1,4 +1,4 @@
-from PIL import Image
+import pyvips
 
 
 class DisplayDeviceVIDPID(  # UsbDevice if you want to use usb device
@@ -25,7 +25,7 @@ class DisplayDeviceVIDPID(  # UsbDevice if you want to use usb device
         # If this works it means that the report id is not correct.
         return bytes.fromhex("your hexadecimal header")
 
-    def _encode_image(self, img: Image) -> bytearray:
+    def _encode_image(self, img: pyvips.Image) -> bytearray:
         # If encoding is not good, the screen will display a blurry image.
         # Try to find the correct encoding. and implement it here.
         return super()._encode_image(img)

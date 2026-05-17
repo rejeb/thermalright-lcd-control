@@ -1,0 +1,5 @@
+# ChiZhu Tech raw-bulk LCD family (GrandVision 360 AIO and PM variants).
+vid: 0x87AD
+pid: 0x70DB
+name: ChiZhu GrandVision family
+probe: bulk

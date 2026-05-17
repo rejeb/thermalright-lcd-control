@@ -96,6 +96,14 @@ copy_files() {
     if [ -d "resources" ]; then
         cp -r resources "$PACKAGE_DIR/"
         log_info "Resources copied"
+
+        # Do not ship the bundled device configs: the device is configured from
+        # the GUI. Keep an empty resources/config so the directory still exists.
+        if [ -d "$PACKAGE_DIR/resources/config" ]; then
+            rm -rf "$PACKAGE_DIR/resources/config"
+            mkdir -p "$PACKAGE_DIR/resources/config"
+            log_info "Cleared bundled resources/config (device config is set up via the GUI)"
+        fi
     fi
 
     # Copy Scripts structure
@@ -135,7 +143,8 @@ create_package() {
     log_info "Package contents:"
     log_info "  - Wheel: $(basename dist/*.whl)"
     log_info "  - Resources: themes, configs, icons"
-    log_info "  - Scripts: install.sh, uninstall.sh, systemd service"
+    log_info "  - Scripts: install.sh, uninstall.sh, app launcher"
+    log_info "  - udev rules: 99-thermalright.rules"
     log_info "  - Lock file: uv.lock"
 }
 

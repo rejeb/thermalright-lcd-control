@@ -2,14 +2,29 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 
-# Uninstallation script for thermalright-lcd-control
+# Uninstallation script for thermalright-lcd-control.
+# Handles BOTH the new system-wide version (/opt + autostart + udev) and the
+# old version (root systemd service + per-user ~/.local/share install).
 
 set -e
 
 APP_NAME="thermalright-lcd-control"
 
-# System service directory
+# New system-wide install locations
+APP_DIR="/opt/$APP_NAME"
+BIN_DIR="/usr/local/bin"
+DESKTOP_DIR="/usr/share/applications"
+AUTOSTART_DIR="/etc/xdg/autostart"
+
+# Legacy locations (old version)
 SYSTEMD_SYSTEM_DIR="/etc/systemd/system"
+
+# udev rules file
+UDEV_RULES_FILE="/etc/udev/rules.d/99-thermalright.rules"
+
+# Set to 1 when invoked from install.sh (--from-install): preserves user config
+# and skips all interactive prompts.
+FROM_INSTALL=0
 
 # Colors
 RED='\033[0;31m'
@@ -45,7 +60,7 @@ check_sudo() {
         log_info "Running with sudo as user: $ACTUAL_USER"
     else
         log_error "This script must be run with sudo privileges"
-        log_info "System service removal requires root access"
+        log_info "Removing /opt, udev rules and system entries requires root access"
         log_info "Please run: sudo ./uninstall.sh"
         exit 1
     fi
@@ -58,14 +73,15 @@ get_user_directories() {
         USER_HOME="$HOME"
     fi
 
-    APP_DIR="$USER_HOME/.local/share/$APP_NAME"
-    BIN_DIR="/usr/local/bin"
     CONFIG_DIR="$USER_HOME/.config/$APP_NAME"
-    DESKTOP_DIR="$USER_HOME/.local/share/applications"
+
+    # Legacy per-user install locations (old version)
+    LEGACY_APP_DIR="$USER_HOME/.local/share/$APP_NAME"
+    LEGACY_DESKTOP_DIR="$USER_HOME/.local/share/applications"
 }
 
 remove_system_service() {
-    log_info "Removing system service..."
+    log_info "Removing system service (old version)..."
 
     # Stop and disable service
     if systemctl is-active --quiet "$APP_NAME.service" 2>/dev/null; then
@@ -86,144 +102,178 @@ remove_system_service() {
     fi
 }
 
-remove_user_installation() {
-    log_info "Removing user installation for: $ACTUAL_USER"
+remove_udev_rules() {
+    log_info "Removing udev rules..."
 
-    # Remove application directory
+    if [ -f "$UDEV_RULES_FILE" ]; then
+        rm -f "$UDEV_RULES_FILE"
+        log_info "udev rules removed: $UDEV_RULES_FILE"
+
+        if command -v udevadm &> /dev/null; then
+            udevadm control --reload-rules || true
+            log_info "udev rules reloaded"
+        fi
+    fi
+
+    # The user's 'plugdev' group membership is left intact (it may be used by
+    # other tools).
+}
+
+remove_system_installation() {
+    log_info "Removing system-wide installation..."
+
+    # New version: /opt install
     if [ -d "$APP_DIR" ]; then
         rm -rf "$APP_DIR"
         log_info "Application directory removed: $APP_DIR"
     fi
 
-    # Remove gui executable
-    if [ -f "$BIN_DIR/$APP_NAME-gui" ]; then
-        rm -f "$BIN_DIR/$APP_NAME-gui"
-        log_info "Executable removed: $BIN_DIR/$APP_NAME-gui"
-    fi
+    # Launchers: new (-app) and legacy (-gui/-service)
+    for exe in "$APP_NAME-app" "$APP_NAME-gui" "$APP_NAME-service"; do
+        if [ -f "$BIN_DIR/$exe" ]; then
+            rm -f "$BIN_DIR/$exe"
+            log_info "Executable removed: $BIN_DIR/$exe"
+        fi
+    done
 
-    # Remove service executable
-    if [ -f "$BIN_DIR/$APP_NAME-service" ]; then
-        rm -f "$BIN_DIR/$APP_NAME-service"
-        log_info "Executable removed: $BIN_DIR/$APP_NAME-service"
-    fi
-
-    # Remove desktop entry
+    # System desktop entry
     if [ -f "$DESKTOP_DIR/$APP_NAME.desktop" ]; then
         rm -f "$DESKTOP_DIR/$APP_NAME.desktop"
-        log_info "Desktop entry removed"
+        log_info "Desktop entry removed: $DESKTOP_DIR/$APP_NAME.desktop"
+    fi
+
+    # Autostart entry
+    if [ -f "$AUTOSTART_DIR/$APP_NAME.desktop" ]; then
+        rm -f "$AUTOSTART_DIR/$APP_NAME.desktop"
+        log_info "Autostart entry removed: $AUTOSTART_DIR/$APP_NAME.desktop"
     fi
 }
 
-cleanup_path() {
-    log_info "Cleaning up PATH modifications..."
+remove_legacy_user_installation() {
+    log_info "Removing legacy per-user installation (old version) for: $ACTUAL_USER"
 
-    # Determine shell and shell RC file
-    if [ -n "$ACTUAL_USER" ]; then
-        USER_SHELL=$(getent passwd "$ACTUAL_USER" | cut -d: -f7)
-    else
-        USER_SHELL="$SHELL"
+    # Old version installed the app under ~/.local/share
+    if [ -d "$LEGACY_APP_DIR" ]; then
+        rm -rf "$LEGACY_APP_DIR"
+        log_info "Legacy application directory removed: $LEGACY_APP_DIR"
     fi
 
-    if [[ "$USER_SHELL" == *"bash"* ]]; then
-        SHELL_RC="$USER_HOME/.bashrc"
-    elif [[ "$USER_SHELL" == *"zsh"* ]]; then
-        SHELL_RC="$USER_HOME/.zshrc"
-    else
-        SHELL_RC="$USER_HOME/.profile"
+    # Old per-user desktop entry
+    if [ -f "$LEGACY_DESKTOP_DIR/$APP_NAME.desktop" ]; then
+        rm -f "$LEGACY_DESKTOP_DIR/$APP_NAME.desktop"
+        log_info "Legacy desktop entry removed"
+    fi
+}
+
+remove_user_configs() {
+    # When called from install.sh, never touch (or prompt about) user config.
+    if [ "$FROM_INSTALL" -eq 1 ]; then
+        log_info "Preserving user configuration (called from installer)"
+        return
     fi
 
-    if [ -f "$SHELL_RC" ]; then
-        # Remove the PATH entry added by the installer
-        if grep -q "Added by thermalright-lcd-control installer" "$SHELL_RC"; then
-            log_info "Removing PATH entry from $SHELL_RC"
+    if [ ! -d "$CONFIG_DIR" ]; then
+        return
+    fi
 
-            # Create a temporary file without the installer lines
-            grep -v "Added by thermalright-lcd-control installer" "$SHELL_RC" > "$SHELL_RC.tmp"
-            grep -v "export PATH=\"$BIN_DIR:\$PATH\"" "$SHELL_RC.tmp" > "$SHELL_RC.tmp2"
-
-            # Remove empty lines that might have been left
-            awk '!/^$/ || NR==1 || prev_empty==0 {prev_empty = (/^$/)} {if (!(/^$/ && prev_empty)) print}' "$SHELL_RC.tmp2" > "$SHELL_RC"
-
-            rm -f "$SHELL_RC.tmp" "$SHELL_RC.tmp2"
-
-            # Fix ownership if running as sudo
-            if [ -n "$ACTUAL_USER" ]; then
-                ACTUAL_UID=$(id -u "$ACTUAL_USER")
-                ACTUAL_GID=$(id -g "$ACTUAL_USER")
-                chown "$ACTUAL_UID:$ACTUAL_GID" "$SHELL_RC"
-            fi
-
-            log_info "PATH cleanup completed"
-        fi
+    echo -n "Remove user configuration files in $CONFIG_DIR? [y/N]: "
+    read -r REPLY
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        rm -rf "$CONFIG_DIR"
+        log_info "User configuration removed: $CONFIG_DIR"
+    else
+        log_info "User configuration preserved: $CONFIG_DIR"
     fi
 }
 
 remove_other_users() {
-    echo -n "Remove installation for ALL users on this system? [y/N]: "
+    # Skip any interaction when called from the installer.
+    if [ "$FROM_INSTALL" -eq 1 ]; then
+        return
+    fi
+
+    echo -n "Remove per-user config/legacy install for ALL users on this system? [y/N]: "
     read -r REPLY
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        log_info "Removing installation for all users..."
+        log_info "Removing per-user data for all users..."
 
         for user_home in /home/*; do
             if [ -d "$user_home" ]; then
                 username=$(basename "$user_home")
-                user_app_dir="$user_home/.local/share/$APP_NAME"
                 user_config_dir="$user_home/.config/$APP_NAME"
-                user_bin_file="$user_home/.local/bin/$APP_NAME"
-                user_desktop_file="$user_home/.local/share/applications/$APP_NAME.desktop"
+                user_legacy_app_dir="$user_home/.local/share/$APP_NAME"
+                user_legacy_desktop="$user_home/.local/share/applications/$APP_NAME.desktop"
 
-                if [ -d "$user_app_dir" ] || [ -d "$user_config_dir" ] || [ -f "$user_bin_file" ]; then
-                    log_info "Removing installation for user: $username"
+                if [ -d "$user_config_dir" ] || [ -d "$user_legacy_app_dir" ]; then
+                    log_info "Removing data for user: $username"
 
-                    rm -rf "$user_app_dir" 2>/dev/null || true
                     rm -rf "$user_config_dir" 2>/dev/null || true
-                    rm -f "$user_bin_file" 2>/dev/null || true
-                    rm -f "$user_desktop_file" 2>/dev/null || true
+                    rm -rf "$user_legacy_app_dir" 2>/dev/null || true
+                    rm -f "$user_legacy_desktop" 2>/dev/null || true
                 fi
             fi
         done
 
-        log_info "All user installations removed"
+        log_info "All per-user data removed"
     else
-        log_info "Other user installations preserved"
+        log_info "Other users' data preserved"
     fi
 }
 
+parse_args() {
+    for arg in "$@"; do
+        case "$arg" in
+            --from-install)
+                FROM_INSTALL=1
+                ;;
+        esac
+    done
+}
+
 main() {
-    log_info "Starting uninstallation of $APP_NAME"
+    parse_args "$@"
+
+    if [ "$FROM_INSTALL" -eq 1 ]; then
+        log_info "Starting uninstallation of $APP_NAME (from installer)"
+    else
+        log_info "Starting uninstallation of $APP_NAME"
+    fi
 
     # Check that script is run with sudo
     check_sudo
 
-    # Get user directories
+    # Resolve user-specific directories
     get_user_directories
 
-    # Remove system service (requires root)
+    # Remove system service from the old version (requires root; no-op otherwise)
     remove_system_service
 
-    # Remove user installation
-    remove_user_installation
+    # Remove udev rules
+    remove_udev_rules
 
-    # Ask about user configs
+    # Remove the new system-wide installation
+    remove_system_installation
+
+    # Remove the old per-user installation (old version)
+    remove_legacy_user_installation
+
+    # Ask about user configs (skipped/preserved when called from installer)
     remove_user_configs
 
-    # Clean up PATH modifications
-    cleanup_path
-
-    # Ask about other users
+    # Ask about other users (skipped when called from installer)
     remove_other_users
 
     log_info ""
     log_info "Uninstallation completed!"
     log_info ""
     log_info "What was removed:"
-    log_info "  ✅ System service: $SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
-    log_info "  ✅ User application: $APP_DIR"
-    log_info "  ✅ User executable: $BIN_DIR/$APP_NAME"
+    log_info "  ✅ System service (old version): $SYSTEMD_SYSTEM_DIR/$APP_NAME.service"
+    log_info "  ✅ System install: $APP_DIR"
+    log_info "  ✅ Launcher(s): $BIN_DIR/$APP_NAME-app (and legacy -gui/-service)"
     log_info "  ✅ Desktop entry: $DESKTOP_DIR/$APP_NAME.desktop"
-    log_info "  ✅ PATH modifications cleaned up"
-    log_info ""
-    log_info "User $ACTUAL_USER may need to restart their terminal for PATH changes to take effect."
+    log_info "  ✅ Autostart entry: $AUTOSTART_DIR/$APP_NAME.desktop"
+    log_info "  ✅ udev rules: $UDEV_RULES_FILE"
+    log_info "  ✅ Legacy per-user install: $LEGACY_APP_DIR"
 }
 
 # Run main function

@@ -1,8 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
-from thermalright_lcd_control.device_controller.display.device_0402_3922 import DisplayDevice04023922320320
-from thermalright_lcd_control.device_controller.display.hid_devices import DisplayDevice04185304, DisplayDevice04165302
-from thermalright_lcd_control.device_controller.display.usb_devices import DisplayDevice87AD70DB320, DisplayDevice87AD70DB480
+from thermalright_lcd_control.device_controller.display.device_0402_3922 import (
+    DisplayDevice04023922320320,
+)
+from thermalright_lcd_control.device_controller.display.hid_devices import (
+    DisplayDevice04165302,
+    DisplayDevice04185304,
+)
+from thermalright_lcd_control.device_controller.display.usb_devices import (
+    DisplayDevice87AD70DB320,
+    DisplayDevice87AD70DB480,
+    DisplayDevice87AD70DB640,
+)
 
 """
 For existing (vid,pid) add your new device in the list:
@@ -20,6 +29,27 @@ SUPPORTED_DEVICES: list[tuple[int, int, list[dict]]] = [...
 SUPPORTED_DEVICES: list[tuple[int, int, list[dict]]] = [
     (0x0418, 0x5304, [DisplayDevice04185304.info()]),
     (0x0416, 0x5302, [DisplayDevice04165302.info()]),
-    (0x87AD, 0x70DB, [DisplayDevice87AD70DB320.info(), DisplayDevice87AD70DB480.info()]),
+    (0x87AD, 0x70DB, [DisplayDevice87AD70DB320.info(), DisplayDevice87AD70DB480.info(), DisplayDevice87AD70DB640.info()]),
     (0x0402, 0x3922, [DisplayDevice04023922320320.info()]),
 ]
+
+# Concrete legacy device classes, used to resolve a (vid, pid, width, height)
+# devices.yaml entry to the class that drives it (no per-device subclass in the
+# generic stack). Resolution is part of the key so ChiZhu's three same-VID:PID
+# variants stay distinct.
+_LEGACY_CLASSES = [
+    DisplayDevice04185304,
+    DisplayDevice04165302,
+    DisplayDevice87AD70DB320,
+    DisplayDevice87AD70DB480,
+    DisplayDevice87AD70DB640,
+    DisplayDevice04023922320320,
+]
+
+
+def find_legacy_class(vid: int, pid: int, width: int, height: int):
+    """Return the legacy device class matching (vid, pid, width, height), or None."""
+    for cls in _LEGACY_CLASSES:
+        if cls.VID == vid and cls.PID == pid and cls.W == width and cls.H == height:
+            return cls
+    return None

@@ -7,7 +7,6 @@ import sys
 import usb
 import yaml
 
-
 from thermalright_lcd_control.common.supported_devices import SUPPORTED_DEVICES
 
 
@@ -71,7 +70,7 @@ def print_select_message(devices: list):
 def choose_device(devices: list) -> dict | None:
     print_select_message(devices)
     try:
-        selected_device = int(input("\n➡️  Select your device (1–{}): ".format(len(devices))))
+        selected_device = int(input(f"\n➡️  Select your device (1–{len(devices)}): "))
         if 1 <= selected_device <= len(devices):
             return devices[selected_device - 1]
         else:

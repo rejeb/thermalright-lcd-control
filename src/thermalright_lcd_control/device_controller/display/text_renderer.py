@@ -3,37 +3,64 @@
 
 import re
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any
 
-from PIL import ImageDraw, ImageFont
+import pyvips
 
-from thermalright_lcd_control.device_controller.display.config import TextConfig, MetricConfig, DisplayConfig
 from thermalright_lcd_control.common.logging_config import LoggerConfig
+from thermalright_lcd_control.device_controller.display import vips_utils as vu
+from thermalright_lcd_control.device_controller.display.config import (
+    MetricConfig,
+    TextConfig,
+)
+from thermalright_lcd_control.device_controller.display.font_manager import (
+    get_font_manager,
+    pango_font_string,
+)
 
-# Import font manager from current package
-try:
-    from .font_manager import get_font_manager
-except ImportError:
-    # Fallback if font_manager is not available
-    class FallbackFontManager:
-        def get_font(self, font_size: int) -> ImageFont.ImageFont:
-            return ImageFont.load_default(font_size)
 
-
-    def get_font_manager():
-        return FallbackFontManager()
+def _parse_color(color) -> tuple[int, int, int, int]:
+    """'#RRGGBB[AA]' or (r,g,b[,a]) → (r,g,b,a)."""
+    if isinstance(color, str):
+        s = color.lstrip("#")
+        r, g, b = int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16)
+        a = int(s[6:8], 16) if len(s) >= 8 else 255
+        return r, g, b, a
+    r, g, b = int(color[0]), int(color[1]), int(color[2])
+    a = int(color[3]) if len(color) > 3 else 255
+    return r, g, b, a
 
 
 class TextRenderer:
     """Text rendering manager for images with global font support"""
 
-    def __init__(self, display_config: DisplayConfig):
+    def __init__(self):
         self.logger = LoggerConfig.setup_service_logger()
         self.font_manager = get_font_manager()
-        self._font_cache = {}
 
-    def _get_font(self, font_size: int) -> ImageFont.ImageFont:
-        return self.font_manager.get_font(font_size)
+    def _draw_text(self, overlay: pyvips.Image, position, text: str, color,
+                   font_size: int, family, bold: bool, italic: bool) -> pyvips.Image:
+        """Composite ``text`` onto ``overlay`` with its ink box top-left at
+        ``position``. Returns the new overlay (pyvips images are immutable)."""
+        if not text:
+            return overlay
+        x, y = int(position[0]), int(position[1])
+        if x >= overlay.width or y >= overlay.height:
+            return overlay
+        rf = self.font_manager.get_font(font_size, family, bold, italic)
+        kwargs = {"font": pango_font_string(rf, bold, italic), "dpi": 72}
+        if rf.path:
+            kwargs["fontfile"] = rf.path
+        try:
+            mask = pyvips.Image.text(text, **kwargs)      # 1-band ink mask
+        except pyvips.Error as e:
+            self.logger.warning(f"text render failed for {text!r}: {e}")
+            return overlay
+        r, g, b, a = _parse_color(color)
+        colored = mask.new_from_image([r, g, b]).bandjoin(
+            (mask * (a / 255.0)).cast("uchar")).copy(interpretation="srgb")
+        return vu.overlay_at(overlay, colored, x, y).crop(
+            0, 0, overlay.width, overlay.height)
 
     def _safe_format_value(self, value: Any, format_string: str, metric_name: str) -> str:
         """Safely format a metric value, handling various types and potential errors"""
@@ -65,11 +92,11 @@ class TextRenderer:
             self.logger.warning(f"Error formatting value {value} for metric {metric_name}: {e}")
             return str(value) if value is not None else "N/A"
 
-    def render_metrics(self, draw: ImageDraw.Draw, metrics: Optional[Dict[str, Any]],
-                       configs: List[MetricConfig]):
-        """Display metrics on the image"""
+    def render_metrics(self, overlay: pyvips.Image, metrics: dict[str, Any] | None,
+                       configs: list[MetricConfig]) -> pyvips.Image:
+        """Display metrics on the overlay; returns the new overlay."""
         if not metrics or not configs:
-            return
+            return overlay
 
         for config in configs:
             if not config.enabled:
@@ -79,7 +106,12 @@ class TextRenderer:
             value = metrics.get(config.name)
             if value is None:
                 continue
-            
+
+            # The metric label is always rendered as its own element (detached
+            # from the value). The value text therefore never embeds it: the
+            # ``{label}`` placeholder always resolves to an empty string.
+            label_arg = ""
+
             # Format text safely
             try:
                 # Use safe formatting for the value
@@ -94,7 +126,7 @@ class TextRenderer:
                         else:
                             numeric_value = float(value)
                         text = config.format_string.format(
-                            label=config.format_label(),
+                            label=label_arg,
                             value=numeric_value,
                             unit=config.unit
                         )
@@ -103,68 +135,84 @@ class TextRenderer:
                         simple_format = config.format_string.replace('{value:.0f}', '{value}').replace('{value:.1f}',
                                                                                                        '{value}')
                         text = simple_format.format(
-                            label=config.label,
+                            label=label_arg,
                             value=str(value) if value is not None else "N/A",
                             unit=config.unit
                         )
                 else:
                     # Standard formatting
                     text = config.format_string.format(
-                        label=config.format_label(),
+                        label=label_arg,
                         value=formatted_value,
                         unit=config.unit
                     )
 
             except Exception as e:
                 self.logger.warning(f"Error formatting metric {config.name}: {e}")
-                # Fallback to simple display
-                text = f"{config.label}: {value if value is not None else 'N/A'}{config.unit}"
+                # Fallback to simple display (value only — the label is drawn separately)
+                text = f"{value if value is not None else 'N/A'}{config.unit}"
 
-            # Get font using global font configuration
-            font = self._get_font(config.font_size)
+            # Draw value text with this metric's own style. Labels are NOT drawn
+            # here — they are independent text overlays (see render_texts), so a
+            # label keeps its own font size/color instead of the value's.
+            overlay = self._draw_text(overlay, config.position, text, config.color,
+                                      config.font_size, config.font_family,
+                                      config.bold, config.italic)
+        return overlay
 
-            # Draw text
-            draw.text(config.position, text, fill=config.color, font=font)
+    def render_texts(self, overlay: pyvips.Image,
+                     texts: list[TextConfig] | None) -> pyvips.Image:
+        """Draw standalone text overlays (labels, titles, …), each with its own
+        text/position/font/color; returns the new overlay."""
+        for config in texts or []:
+            if not config.enabled or not config.text:
+                continue
+            overlay = self._draw_text(overlay, config.position, config.text,
+                                      config.color, config.font_size,
+                                      config.font_family, config.bold, config.italic)
+        return overlay
 
-    def render_date(self, draw: ImageDraw.Draw, config: Optional[TextConfig], now: datetime = None):
-        """Display current date formatted as dd/mm"""
+    def render_date(self, overlay: pyvips.Image, config: TextConfig | None,
+                    now: datetime = None) -> pyvips.Image:
+        """Display current date formatted as dd/mm; returns the new overlay."""
         if not config or not config.enabled:
-            return
+            return overlay
 
         # dd/mm format - use provided datetime to avoid multiple calls
         if now is None:
             now = datetime.now()
         current_date = now.strftime("%d/%m")
 
-        # Get font using global font configuration
-        font = self._get_font(config.font_size)
+        return self._draw_text(overlay, config.position, current_date, config.color,
+                               config.font_size, config.font_family,
+                               config.bold, config.italic)
 
-        # Draw text
-        draw.text(config.position, current_date, fill=config.color, font=font)
-
-    def render_time(self, draw: ImageDraw.Draw, config: Optional[TextConfig], now: datetime = None):
-        """Display current time formatted as HH:MM"""
+    def render_time(self, overlay: pyvips.Image, config: TextConfig | None,
+                    now: datetime = None) -> pyvips.Image:
+        """Display current time formatted as HH:MM; returns the new overlay."""
         if not config or not config.enabled:
-            return
+            return overlay
 
         # HH:MM format - use provided datetime to avoid multiple calls
         if now is None:
             now = datetime.now()
         current_time = now.strftime("%H:%M")
 
-        # Get font using global font configuration
-        font = self._get_font(config.font_size)
+        return self._draw_text(overlay, config.position, current_time, config.color,
+                               config.font_size, config.font_family,
+                               config.bold, config.italic)
 
-        # Draw text
-        draw.text(config.position, current_time, fill=config.color, font=font)
+    def render_weekday(self, overlay: pyvips.Image, config: TextConfig | None,
+                       now: datetime = None) -> pyvips.Image:
+        """Display the current day of week (e.g. "Monday"); returns the new overlay."""
+        if not config or not config.enabled:
+            return overlay
 
-    def render_custom_text(self, draw: ImageDraw.Draw, config: TextConfig):
-        """Display custom text"""
-        if not config.enabled or not config.text:
-            return
+        if now is None:
+            now = datetime.now()
+        current_weekday = now.strftime("%A")
 
-        # Get font using global font configuration
-        font = self._get_font(config.font_size)
+        return self._draw_text(overlay, config.position, current_weekday, config.color,
+                               config.font_size, config.font_family,
+                               config.bold, config.italic)
 
-        # Draw text
-        draw.text(config.position, config.text, fill=config.color, font=font)

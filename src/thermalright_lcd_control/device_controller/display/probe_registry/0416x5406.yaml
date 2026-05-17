@@ -1,0 +1,5 @@
+# Winbond USB mass-storage LCD (SCSI wire).
+vid: 0x0416
+pid: 0x5406
+name: Winbond LCD (SCSI)
+probe: scsi

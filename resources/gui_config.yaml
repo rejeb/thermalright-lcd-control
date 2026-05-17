@@ -1,18 +1,36 @@
-# SPDX-License-Identifier: Apache-2.0
-# Copyright © 2025 Rejeb Ben Rejeb
-
 paths:
-  themes_dir: "./resources/themes/presets"
-  backgrounds_dir: "./resources/themes/backgrounds"
-  foregrounds_dir: "./resources/themes/foregrounds"
-  service_config: "./resources/config"
+  themes_dir: ./resources/themes/presets
+  backgrounds_dir: ./resources/themes/backgrounds
+  foregrounds_dir: ./resources/themes/foregrounds
+  service_config: ./resources/config
+  icon_path: ./resources/32x32/icon.png
+  user_backgrounds: ./resources/themes/user_backgrounds
+ui:
+  theme: dark
+updates:
+  check_on_startup: true
 window:
   default_width: 1920
   default_height: 1080
   min_width: 800
   min_height: 600
-
 supported_formats:
-  images: [ '.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp' ]
-  videos: [ '.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv', '.wmv', '.m4v' ]
-  gifs: [ '.gif' ]
+  images:
+  - .jpg
+  - .jpeg
+  - .png
+  - .bmp
+  - .tiff
+  - .webp
+  videos:
+  - .mp4
+  - .avi
+  - .mkv
+  - .mov
+  - .webm
+  - .flv
+  - .wmv
+  - .m4v
+  gifs:
+  - .gif
+media_endpoint: http://www.czhorde.cc/tr

@@ -8,14 +8,11 @@ from thermalright_lcd_control.device_controller.display.display_device import Di
 
 class HidDevice(DisplayDevice, ABC):
     mode = "HID"
-    def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args, **kwargs):
-        super().__init__(vid, pid, chunk_size, width, height, config_dir, *args, **kwargs)
+    def __init__(self, vid, pid, chunk_size, width, height, config_dir: str, *args,
+                 config_file: str = None, **kwargs):
+        super().__init__(vid, pid, chunk_size, width, height, config_dir, *args,
+                         config_file=config_file, **kwargs)
         self.dev = hid.Device(vid, pid)
-        self.vid = vid
-        self.pid = pid
-        self.chunk_size = chunk_size
-        self.height = height
-        self.width = width
         self.header = self.get_header()
         self.config_dir = config_dir
 
@@ -27,8 +24,9 @@ class HidDevice(DisplayDevice, ABC):
 class DisplayDevice04185304(HidDevice):
     W, H = 480, 480
     VID, PID = 0x0418, 0x5304
-    def __init__(self, config_dir: str):
-        super().__init__(self.VID, self.PID, 512, self.W, self.H, config_dir)
+    def __init__(self, config_dir: str, config_file: str = None):
+        super().__init__(self.VID, self.PID, 512, self.W, self.H, config_dir,
+                         config_file=config_file)
 
     def get_header(self) -> bytes:
         return struct.pack('<BBHHH',
@@ -54,8 +52,9 @@ class DisplayDevice04165302(HidDevice):
     W, H = 320, 240
     VID, PID = 0x0416, 0x5302
 
-    def __init__(self, config_dir: str):
-        super().__init__(self.VID, self.PID, 512, self.W, self.H, config_dir)
+    def __init__(self, config_dir: str, config_file: str = None):
+        super().__init__(self.VID, self.PID, 512, self.W, self.H, config_dir,
+                         config_file=config_file)
 
     def get_header(self) -> bytes:
         prefix = bytes([0xDA, 0xDB, 0xDC, 0xDD])
