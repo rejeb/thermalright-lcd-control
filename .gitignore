@@ -64,3 +64,14 @@ releases/
 *.log
 *.tmp
 /resources/config/device_info.yaml
+/resources/config/devices.yaml
+docs/
+handoff/
+
+resources/themes/backgrounds/*/*.mp4
+resources/themes/backgrounds/*/user*.*
+resources/themes/user_backgrounds/*/user*.*
+resources/themes/user_backgrounds/collection_*
+resources/config/device*.yaml
+resources/config/config_5302_*.yaml
+resources/config/config_5408_*.yaml

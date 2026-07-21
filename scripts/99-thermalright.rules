@@ -1,0 +1,23 @@
+# udev rules for Thermalright LCD displays
+#
+# Grants non-root access to the supported displays via the "plugdev" group.
+# Install with:  sudo ./scripts/install-udev-rules.sh
+# (or copy this file to /etc/udev/rules.d/ and reload, see that script).
+#
+# After installation you no longer need sudo to run the service: just make
+# sure your user is in the "plugdev" group (`groups | grep plugdev`).
+
+# --- HID (hidapi) devices: exposed as /dev/hidraw* ---
+# ChiZhu 0x0416:0x5302 (320x240)
+KERNEL=="hidraw*", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="5302", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# 0x0418:0x5304
+KERNEL=="hidraw*", ATTRS{idVendor}=="0418", ATTRS{idProduct}=="5304", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# 0x0402:0x3922 (320x320)
+KERNEL=="hidraw*", ATTRS{idVendor}=="0402", ATTRS{idProduct}=="3922", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+
+# --- USB-bulk (libusb / pyusb) devices: accessed via /dev/bus/usb/* ---
+# ChiZhu 0x87AD:0x70DB (320/480/640 variants)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="87ad", ATTRS{idProduct}=="70db", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# LY 0x0416:0x5408 / 0x5409
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="5408", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0416", ATTRS{idProduct}=="5409", MODE="0660", GROUP="plugdev", TAG+="uaccess"

@@ -1,0 +1,5 @@
+# ALi Corp LCD — HID type 3 (F5-prefix handshake).
+vid: 0x0418
+pid: 0x5303
+name: ALi LCD (HID type 3)
+probe: hid_t3

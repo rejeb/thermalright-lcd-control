@@ -1,0 +1,76 @@
+display:
+  background:
+    path: ./resources/themes/backgrounds/{resolution}/theme_2.png
+    type: image
+  date:
+    color: '#FFFFFFFF'
+    enabled: false
+    font_size: 18
+    position: &id001
+      x: 0
+      y: 0
+    text: ''
+  foreground:
+    alpha: 1.0
+    enabled: true
+    path: ./resources/themes/foregrounds/{resolution}/theme_2.png
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs:
+    - bold: false
+      color: '#ffffffff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 64
+      format_string: '{value}{unit}'
+      italic: false
+      name: cpu_usage
+      position:
+        x: 256
+        y: 1736
+      precision: 0
+      unit: '%'
+    - bold: false
+      color: '#ffffffff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 64
+      format_string: '{value}{unit}'
+      italic: false
+      name: gpu_usage
+      position:
+        x: 257
+        y: 1836
+      precision: 0
+      unit: '%'
+    enabled: true
+  rotation: 0
+  texts:
+  - bold: false
+    color: '#ffffffff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 64
+    italic: false
+    position:
+      x: 40
+      y: 1736
+    text: CPU
+  - bold: false
+    color: '#ffffffff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 64
+    italic: false
+    position:
+      x: 39
+      y: 1836
+    text: GPU
+  time:
+    color: '#FFFFFFFF'
+    enabled: false
+    font_size: 18
+    position: *id001
+    text: ''

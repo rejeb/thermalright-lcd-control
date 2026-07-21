@@ -1,8 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
-import glob, os, re
+import glob
+import os
+import re
+
 import psutil
-from thermalright_lcd_control.device_controller.metrics import Metrics
-from thermalright_lcd_control.common.logging_config import LoggerConfig
+
+from thermalright_lcd_control.device_controller.metrics.base import Metrics, read_sysfs_float
+
 
 class CpuMetrics(Metrics):
     """
@@ -12,7 +16,6 @@ class CpuMetrics(Metrics):
     """
     def __init__(self):
         super().__init__()
-        self.logger = LoggerConfig.setup_service_logger()
         self.cpu_usage = 0.0
         self.cpu_temp = None
         self.cpu_freq = None
@@ -24,12 +27,22 @@ class CpuMetrics(Metrics):
         self._hwmon_roots_cache = None
 
     # ---------- helpers ----------
+    def _resolve_psutil_temp_path(self, key: str, idx: int) -> str | None:
+        """Map a psutil (key, idx) sensor to its underlying sysfs temp*_input path."""
+        for hwmon_dir in glob.glob("/sys/class/hwmon/hwmon*"):
+            try:
+                with open(os.path.join(hwmon_dir, "name")) as f:
+                    if f.read().strip().lower() != key:
+                        continue
+            except Exception:
+                continue
+            inputs = sorted(glob.glob(os.path.join(hwmon_dir, "temp*_input")))
+            if idx < len(inputs):
+                return inputs[idx]
+        return None
+
     def _read_float(self, path, scale=1.0):
-        try:
-            with open(path) as f:
-                return float(f.read().strip()) * scale
-        except Exception:
-            return None
+        return read_sysfs_float(path, scale)
 
     def _list_hwmon_roots(self):
         # Cache hwmon roots to avoid repeated scans
@@ -166,30 +179,34 @@ class CpuMetrics(Metrics):
         except Exception as e:
             self.logger.debug(f"AMD hwmon read failed: {e}")
 
-        # 2) psutil (may already expose k10temp)
+        # 2) psutil (may already expose k10temp) — used only for discovery, then resolved to sysfs
         try:
             temps = psutil.sensors_temperatures()
-            # Try explicit k10temp/zenpower keys first
-            for key in ("k10temp", "zenpower", "coretemp", "cpu-thermal", "acpitz"):
-                if key in temps and temps[key]:
-                    for idx, e in enumerate(temps[key]):
-                        cur = getattr(e, "current", None)
-                        if cur is not None:
-                            self.cpu_temp = float(cur)
-                            self._temp_path_cache = (key, idx)
-                            self._temp_method_cache = "psutil"
-                            self.logger.debug(f"CPU temp via psutil[{key}]: {self.cpu_temp:.1f}°C")
-                            return self.cpu_temp
-            # Otherwise, heuristically pick the first with a plausible current
-            for name, entries in temps.items():
-                for idx, e in enumerate(entries):
-                    cur = getattr(e, "current", None)
-                    if cur is not None and 0.0 < cur < 120.0:
-                        self.cpu_temp = float(cur)
-                        self._temp_path_cache = (name, idx)
-                        self._temp_method_cache = "psutil"
-                        self.logger.debug(f"CPU temp via psutil[{name}]: {self.cpu_temp:.1f}°C")
-                        return self.cpu_temp
+            candidates = [
+                (key, idx, e)
+                for key in ("k10temp", "zenpower", "coretemp", "cpu-thermal", "acpitz")
+                if key in temps
+                for idx, e in enumerate(temps[key])
+            ] or [
+                (name, idx, e)
+                for name, entries in temps.items()
+                for idx, e in enumerate(entries)
+            ]
+            for key, idx, e in candidates:
+                cur = getattr(e, "current", None)
+                if cur is None or not (0.0 < cur < 120.0):
+                    continue
+                self.cpu_temp = float(cur)
+                sysfs_path = self._resolve_psutil_temp_path(key, idx)
+                if sysfs_path:
+                    self._temp_path_cache = sysfs_path
+                    self._temp_method_cache = "hwmon"
+                    self.logger.debug(f"CPU temp via psutil[{key}] → sysfs {sysfs_path}: {self.cpu_temp:.1f}°C")
+                else:
+                    self._temp_path_cache = (key, idx)
+                    self._temp_method_cache = "psutil"
+                    self.logger.debug(f"CPU temp via psutil[{key}]: {self.cpu_temp:.1f}°C")
+                return self.cpu_temp
         except Exception as e:
             self.logger.debug(f"psutil sensors_temperatures failed: {e}")
 
@@ -247,14 +264,14 @@ class CpuMetrics(Metrics):
 
     def get_frequency(self):
         try:
-            fi = psutil.cpu_freq()
-            if fi and fi.current:
-                self.cpu_freq = round(float(fi.current), 2)
-                return self.cpu_freq
             v = self._cpufreq_sysfs()
             if v:
                 self.cpu_freq = v
                 return v
+            fi = psutil.cpu_freq()
+            if fi and fi.current:
+                self.cpu_freq = round(float(fi.current), 2)
+                return self.cpu_freq
             with open("/proc/cpuinfo") as f:
                 for line in f:
                     if line.startswith("cpu MHz"):
@@ -264,28 +281,12 @@ class CpuMetrics(Metrics):
             self.logger.error(f"Error reading CPU frequency: {e}")
         return None
 
-    # ---------- bundles ----------
-    def get_all_metrics(self):
-        return {
-            "temperature": self.get_temperature(),
-            "usage_percentage": self.get_usage_percentage(),
-            "frequency": self.get_frequency(),
-        }
+    # ---------- widget keys ----------
+    def metric_cpu_temperature(self):
+        return self.get_temperature()
 
-    def get_metric_value(self, metric_name, precision) -> str:
-        if metric_name == "cpu_temperature":
-            v = self.get_temperature(); return f"{v:.{precision}f}" if v is not None else "N/A"
-        if metric_name == "cpu_usage":
-            v = self.get_usage_percentage(); return f"{v:.{precision}f}" if v is not None else "N/A"
-        if metric_name == "cpu_frequency":
-            v = self.get_frequency(); return f"{v:.{precision}f}" if v is not None else "N/A"
-        return "N/A"
+    def metric_cpu_usage(self):
+        return self.get_usage_percentage()
 
-    def __str__(self):
-        t = self.get_temperature()
-        u = self.get_usage_percentage()
-        f = self.get_frequency()
-        t_s = f"{t:.1f}°C" if t is not None else "N/A"
-        u_s = f"{u:.1f}%" if u is not None else "N/A"
-        f_s = f"{f:.0f} MHz" if f is not None else "N/A"
-        return f"CPU - Usage: {u_s}, Temperature: {t_s}, Frequency: {f_s}"
+    def metric_cpu_frequency(self):
+        return self.get_frequency()

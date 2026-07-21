@@ -1,31 +1,46 @@
 # Introduction
 
-This section is to explain how I managed to find out how my device works. Hope this will be helpful for poeple who want
+This section is to explain how I managed to find out how my device works. Hope this will be helpful for people who want
 to do the same.
+
+Once you have figured out how your device works (header, encoding, transport), there are two ways to add it to the
+application:
+
+- **Generic device (recommended)**: describe the device in the gui or in a small YAML file, no code needed. See
+  [Adding a generic device](#adding-a-generic-device-no-code).
+- **Native device**: write a Python device class, for protocols the generic driver cannot express. See
+  [Adding a native device](#adding-a-native-device-python-code).
 
 # Application description
 
-The applcation is devided in two parts:
+The application is divided in two parts:
 
 - The gui which is made to help configure and customize what is displayed on the screen.
-- The device_controller which is the part that talks to the device.
+- The device_controller which is the part that talks to the device. Since v2.0 it runs inside the gui process (no
+  separate root service), device access is granted by udev rules.
 
 Configuration files:
 
 - gui_config.yaml: holds the configuration of the gui. The config file is under resources.
-- config_{width}{height}.yaml: holds the configuration of what the device will display. Such as background, foreground
-  and the metrics to display.
+- device_{id}.yaml: one file per registered device, holding its description (VID/PID, resolution, transport, encoding,
+  header...). Created by the gui or by hand, under the config directory.
+- config_{id}.yaml: holds the configuration of what the device will display, keyed by device id. Such as background,
+  foreground and the metrics to display.
+- config_{width}{height}.yaml: resolution-keyed default themes, used to seed the per-device config the first time.
   Predefined config files are under resources/config.
+
+The config directory is `resources/config` when running from the sources, and `~/.config/thermalright-lcd-control/config`
+for an installed application.
 
 Main class:
 
-- service.py: the main class that starts the device_controller.
-- main_gui.py: the main class that starts the gui.
+- main_app.py: the main class that starts the application (gui + device controller).
 
-I also added two bash scripts:
+To run from the sources:
 
-- run_service.sh: starts the service. Must be run as sudo.
-- run_gui.sh: starts the gui.
+```bash
+uv run thermalright-lcd-control-app --config resources/gui_config.yaml
+```
 
 # Tools
 
@@ -145,9 +160,105 @@ To clean the output.txt:
   to right.
   So every time it hits the top, the sequence of 0000 is added.
 
-# Testing the device
+# Adding a generic device (no code)
 
-At this stage, you can go and implement your own device. An example with commentary is available in
+At this stage you know the header value, the image encoding and the transport your device uses. In most cases that is
+all the generic, data-driven driver needs: you just have to describe the device, either from the gui or in a YAML
+file.
+
+## From the gui
+
+The easiest way to add a device is the "add device" form. No file editing and no restart are required: once you save,
+the device is registered and starts displaying immediately.
+
+Steps:
+
+1. Click the **"+" button** in the application header to open the add-device dialog.
+2. Pick your device from the **connected devices list**. The dialog enumerates the USB devices currently plugged in
+   (via `lsusb`), so you can select yours by name/VID:PID instead of typing the ids by hand.
+    - If the selected VID:PID matches one of the bundled profiles (see [Bundled profiles](#bundled-profiles-known-devices)),
+      the **whole form is pre-filled** for you — you can just save.
+    - Otherwise, fill in the fields yourself (see [The device file](#the-device-file) for the meaning of each field:
+      resolution, transport, encoding, header, and the transport-specific optional fields).
+3. Leave the **"Generic" toggle on** to use the data-driven driver (recommended). Turn it off only if your device needs
+   one of the native, hard-coded device classes.
+4. Check the suggested **device id** — the dialog proposes `<pid>_<vid>_<bus>_<device>` so two identical displays stay
+   distinct. You can keep it as is in most cases.
+5. Click **Save**. The dialog writes the `device_<id>.yaml` file for you, the device appears as a new tab in the device
+   bar, and it starts rendering right away with a default theme for its resolution.
+
+If the device shows nothing or a blurry/scrambled image after saving, the header or encoding is not right yet: reopen
+the form and adjust the `header` / `encoding` fields (see [The device file](#the-device-file) and
+[The screen displays a blurry image](#the-screen-displays-a-blurry-image)).
+
+## The device file
+
+Each registered device is one `device_<id>.yaml` file in the config directory. Example for the 0416:5302 device:
+
+```yaml
+id: 5302_0416_3_4
+vid: 0x0416
+pid: 0x5302
+width: 320
+height: 240
+generic: true
+transport: hid
+chunk_size: 4096
+encoding: rgb565_le_columns
+report_id: "00"
+header:
+  prefix: "DADBDCDD"
+  format: "<6HIH"
+  values: [2, 1, width, height, 2, 0, payload_size, 0]
+```
+
+Fields:
+
+- `id`: unique device id, also used to name the active theme file (`config_<id>.yaml`). The gui suggests
+  `<pid>_<vid>_<bus>_<device>` so two identical devices stay distinct.
+- `vid` / `pid`: USB ids, as shown by `lsusb`.
+- `width` / `height`: screen resolution in pixels.
+- `generic`: `true` for the data-driven driver, `false` to use a native device class instead.
+- `transport`: how frames are sent to the device. One of:
+    - `hid`: HID interface (hidapi).
+    - `usb_bulk`: plain USB bulk endpoint.
+    - `usb_bulk_ly`: USB bulk with the "LY" handshake + chunked JPEG protocol.
+    - `scsi`: USB Mass Storage / SCSI commands.
+- `chunk_size`: size in bytes of each write. In wireshark it corresponds to `usb.data_len`.
+- `encoding`: how the image is encoded. One of:
+    - `rgb565_le_columns`: RGB565 little-endian, column-major with vertical flip.
+    - `rgb565_be`: RGB565 big-endian, row-major.
+    - `jpeg`: JPEG-compressed frame (see `jpeg_quality`).
+- `header`: the frame header, either static or computed per frame:
+    - Static: `header: {static: "dadbdcdd0200..."}` with the full hex string you extracted from the capture.
+    - Computed: `prefix` (fixed hex bytes) + `format` (a Python
+      [struct](https://docs.python.org/3/library/struct.html) format) + `values`. Each value is a literal int, a hex
+      string, or one of the placeholders `width`, `height`, `payload_size`, `cmd`, resolved for every frame.
+    - Omit `header` entirely if your device takes the raw payload with no header.
+
+Optional fields, depending on the transport:
+
+- `report_id`: hex byte(s) prepended to every HID packet (default `"00"`).
+- `cmd`: value substituted for the `cmd` header placeholder.
+- `command`: SCSI opcode for the `scsi` transport (default `0xF5`).
+- `jpeg_quality`: JPEG quality for the `jpeg` encoding (default 85).
+- `ep_in`: IN endpoint address used to read handshake replies (default `0x81`).
+- `start_wait`: seconds to wait before sending the first frame.
+
+## Bundled profiles (known devices)
+
+The profiles of already-reverse-engineered devices are bundled under
+`src/thermalright_lcd_control/device_controller/display/known_devices/`, one YAML file per device+resolution (named
+`<VID>x<PID>_<width>x<height>.yaml`). The gui uses them to pre-fill the add-device form when a matching VID:PID is
+connected.
+
+If you got a new device working with the generic driver, please contribute your profile there so the next user gets it
+pre-filled.
+
+# Adding a native device (Python code)
+
+If your device protocol cannot be expressed with the generic driver (special handshake, exotic encoding...), you can
+implement a device class. An example with commentary is available in
 `new_device_example.py`.
 
 For naming class please use the convention in the `new_device_example.py`, please don't name the class using your
@@ -174,7 +285,14 @@ If you added a new file, disable foreground by updating property `foreground.ena
 Later you can create a folder under `resources/themes/forgrounds/{width}{height}` and add foregrounds suited for your
 screen resolution.
 
-Make sure you stopped the windows VM and then run the bash script `run_service.sh` sudo to start the application.
+Finally, register the device with `generic: false` in its `device_<id>.yaml` file (see the generic section above): the
+native class is resolved from the VID/PID and resolution.
+
+Make sure you stopped the windows VM and then start the application:
+
+```bash
+uv run thermalright-lcd-control-app --config resources/gui_config.yaml
+```
 
 If you're done well all the steps, you should see your device working.
 
@@ -184,7 +302,8 @@ I think that ThermalRight used the same logic to encode the image in the officia
 
 If the screen displays a blurry image, it means that the image is not encoded correctly.
 
-Then you need to find out how the image is encoded for your device.
+For a generic device, first try the other `encoding` values in the device file — that is often enough. If none of them
+works, you need to find out how the image is encoded for your device and implement it in a native device class.
 
 There is many ways to scan image, horizontal scan, vertical scan and from rigtht to left or left to right.
 
@@ -211,11 +330,11 @@ If it is not exactly the same then it must try another algorithm and so on until
 It took me a lot of time and effort to figure out how to prepare something clean for that AI can figure out how to
 encode the image.
 
-# Adding support for a new device on the gui
+# Making the device visible in the gui
 
-The last step is to add support for a new device on the gui.
-
-To do that, you need to add a new device in `gui_config.yaml` file, under `supported_devices`.
+There is nothing more to do: the gui reads the same `device_<id>.yaml` files. Once the device is registered (via the
+"+" dialog or by dropping the file in the config directory), it appears in the device list and gets its own active
+theme file `config_<id>.yaml`.
 
 I deliberately avoided putting a product name like `Frozen Wareframe` because the same device can be used in multiple
 products, and therefore the concept of a product name loses all meaning.
@@ -234,7 +353,8 @@ under `resources/themes/forgrounds/{width}{height}`.
 
 # Add a new theme
 
-Last step is to run the gui using the bash script `run_gui.sh` and configure a theme and save it.
+Last step is to run the application (`uv run thermalright-lcd-control-app --config resources/gui_config.yaml`),
+configure a theme and save it.
 
 The config file will be saved in `resources/themes/presets/{width}{height}/`.
 

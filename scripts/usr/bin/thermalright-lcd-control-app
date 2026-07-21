@@ -1,0 +1,56 @@
+#!/bin/bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright © 2025 Rejeb Ben Rejeb
+#
+# Per-user launcher for thermalright-lcd-control.
+# The application is installed system-wide (read-only) under /opt; every user
+# gets their own writable configuration under ~/.config on first launch.
+# This script is NEVER run as root.
+
+APP_ROOT="/opt/thermalright-lcd-control"
+CONFIG_DIR="$HOME/.config/thermalright-lcd-control"
+
+mkdir -p "$CONFIG_DIR"
+
+# Seed per-user DATA (device config + themes) once. Preserved across upgrades so
+# the user keeps their configured device, saved themes and uploaded media.
+if [ ! -d "$CONFIG_DIR/config" ]; then
+    [ -d "$APP_ROOT/resources/config" ] && cp -r "$APP_ROOT/resources/config" "$CONFIG_DIR/"
+fi
+if [ ! -d "$CONFIG_DIR/themes" ]; then
+    [ -d "$APP_ROOT/resources/themes" ] && cp -R "$APP_ROOT/resources/themes" "$CONFIG_DIR/"
+fi
+# Note: a themes layout that no longer matches this version is handled at install
+# time (install.sh asks for confirmation before wiping themes + device config),
+# never silently here, because the launcher may run unattended at login.
+# Rewrite any bundled relative ./resources/ paths in the seeded data to the user
+# config dir (idempotent: a no-op once already rewritten).
+find "$CONFIG_DIR/config" "$CONFIG_DIR/themes" -type f \
+    \( -name '*.yaml' -o -name '*.yml' -o -name '*.json' \) \
+    -exec sed -i "s|./resources/|$CONFIG_DIR/|g" {} \; 2>/dev/null
+
+# gui_config.yaml is app-managed (its paths/schema change between versions), so
+# regenerate it from the template on every launch to pick up new keys/paths,
+# preserving only the user's theme preference (ui.theme).
+OLD_THEME=""
+if [ -f "$CONFIG_DIR/gui_config.yaml" ]; then
+    OLD_THEME=$(grep -E '^[[:space:]]*theme:' "$CONFIG_DIR/gui_config.yaml" | head -1 | awk '{print $2}')
+fi
+cp "$APP_ROOT/resources/gui_config.yaml" "$CONFIG_DIR/gui_config.yaml"
+
+# Point gui_config.yaml path keys to per-user dirs (and the shared icon).
+sed -i "s|themes_dir: .*|themes_dir: $CONFIG_DIR/themes/presets|" "$CONFIG_DIR/gui_config.yaml"
+sed -i "s|backgrounds_dir: .*|backgrounds_dir: $CONFIG_DIR/themes/backgrounds|" "$CONFIG_DIR/gui_config.yaml"
+sed -i "s|foregrounds_dir: .*|foregrounds_dir: $CONFIG_DIR/themes/foregrounds|" "$CONFIG_DIR/gui_config.yaml"
+sed -i "s|user_backgrounds: .*|user_backgrounds: $CONFIG_DIR/themes/user_backgrounds|" "$CONFIG_DIR/gui_config.yaml"
+sed -i "s|service_config: .*|service_config: $CONFIG_DIR/config|" "$CONFIG_DIR/gui_config.yaml"
+sed -i "s|icon_path: .*|icon_path: $APP_ROOT/resources/32x32/icon.png|" "$CONFIG_DIR/gui_config.yaml"
+
+# Restore the user's previous theme choice, if any.
+if [ -n "$OLD_THEME" ]; then
+    sed -i "s|^\([[:space:]]*\)theme:.*|\1theme: $OLD_THEME|" "$CONFIG_DIR/gui_config.yaml"
+fi
+
+export PYTHONPATH="$APP_ROOT:$PYTHONPATH"
+exec "$APP_ROOT/venv/bin/python" -m thermalright_lcd_control.main_app \
+     --config "$CONFIG_DIR/gui_config.yaml" "$@"

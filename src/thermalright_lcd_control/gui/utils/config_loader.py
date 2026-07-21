@@ -29,7 +29,8 @@ def get_default_config():
             'images': ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.webp'],
             'videos': ['.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv', '.wmv', '.m4v'],
             'gifs': ['.gif']
-        }
+        },
+        'media_endpoint': 'https://api.thermalright.com/'
     }
 
 
@@ -48,7 +49,7 @@ def load_config(config_file_path=None):
             logger.warning(f"Config file not found: {config_file_path}, using default configuration")
             return default_config
 
-        with open(config_path, 'r', encoding='utf-8') as f:
+        with open(config_path, encoding='utf-8') as f:
             config = yaml.safe_load(f)
 
         # Merge with default config to ensure all keys exist

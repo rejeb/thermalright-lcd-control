@@ -1,0 +1,38 @@
+display:
+  background:
+    path: ''
+    type: image
+  date:
+    bold: false
+    color: '#FFFFFFFF'
+    enabled: false
+    font_family: null
+    font_size: 18
+    italic: false
+    position:
+      x: 0
+      y: 0
+    text: ''
+  foreground:
+    alpha: 0.5
+    enabled: false
+    path: null
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs: []
+    enabled: false
+  rotation: 180
+  texts: []
+  time:
+    bold: false
+    color: '#FFFFFFFF'
+    enabled: false
+    font_family: null
+    font_size: 18
+    italic: false
+    position:
+      x: 0
+      y: 0
+    text: ''

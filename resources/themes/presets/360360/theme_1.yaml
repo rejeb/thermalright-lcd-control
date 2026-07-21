@@ -1,0 +1,74 @@
+display:
+  background:
+    path: ./resources/themes/backgrounds/{resolution}/a001.mp4
+    type: video
+  date:
+    color: '#FFFFFFFF'
+    enabled: false
+    font_size: 25
+    position:
+      x: 15
+      y: 3
+    text: ''
+  foreground:
+    alpha: 1.0
+    enabled: true
+    path: ./resources/themes/foregrounds/{resolution}/002c.png
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs:
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 25
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: cpu_temperature
+      position:
+        x: 33
+        y: 57
+      precision: 2
+      unit: °
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 25
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: gpu_temperature
+      position:
+        x: 249
+        y: 54
+      precision: 2
+      unit: °
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 25
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: cpu_frequency
+      position:
+        x: 33
+        y: 274
+      precision: 2
+      unit: MHZ
+    - color: '#FFFFFFFF'
+      enabled: true
+      font_size: 25
+      format_string: '{label}{value}{unit}'
+      label: ''
+      name: gpu_frequency
+      position:
+        x: 251
+        y: 275
+      precision: 2
+      unit: MHZ
+    enabled: true
+  time:
+    color: '#FFFFFFFF'
+    enabled: false
+    font_size: 25
+    position:
+      x: 178
+      y: 162
+    text: ''

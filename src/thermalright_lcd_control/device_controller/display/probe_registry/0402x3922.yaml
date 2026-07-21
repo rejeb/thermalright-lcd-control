@@ -1,0 +1,5 @@
+# Thermalright Frozen Warframe — USB mass-storage / SCSI BOT LCD.
+vid: 0x0402
+pid: 0x3922
+name: Thermalright Frozen Warframe
+probe: scsi

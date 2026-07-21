@@ -1,0 +1,48 @@
+display:
+  background:
+    path: resources/themes/backgrounds/{resolution}/e021.mp4
+    type: video
+  date:
+    bold: false
+    color: '#FFFFFFFF'
+    enabled: false
+    font_family: null
+    font_size: 18
+    italic: false
+    position:
+      x: 0
+      y: 0
+    text: ''
+  foreground:
+    alpha: 0.5
+    enabled: false
+    path: null
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs: []
+    enabled: false
+  rotation: 0
+  texts:
+  - bold: false
+    color: '#FFFFFFFF'
+    enabled: true
+    font_family: null
+    font_size: 18
+    italic: false
+    position:
+      x: 96
+      y: 72
+    text: Text
+  time:
+    bold: false
+    color: '#FFFFFFFF'
+    enabled: false
+    font_family: null
+    font_size: 18
+    italic: false
+    position:
+      x: 0
+      y: 0
+    text: ''

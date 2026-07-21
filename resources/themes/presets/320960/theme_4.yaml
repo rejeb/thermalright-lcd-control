@@ -1,0 +1,79 @@
+display:
+  background:
+    path: ./resources/themes/backgrounds/{resolution}/theme_4.png
+    type: image
+  date:
+    color: '#FFFFFFFF'
+    enabled: false
+    font_size: 18
+    position: &id001
+      x: 0
+      y: 0
+    text: ''
+  foreground:
+    alpha: 1.0
+    enabled: true
+    path: ./resources/themes/foregrounds/{resolution}/theme_4.png
+    position:
+      x: 0
+      y: 0
+  metrics:
+    configs:
+    - bold: false
+      color: '#ffffffff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 36
+      format_string: '{value}{unit}'
+      italic: false
+      name: gpu_temperature
+      position:
+        x: 202
+        y: 731
+      precision: 0
+      unit: °C
+    - bold: false
+      color: '#ffffffff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 36
+      format_string: '{value}{unit}'
+      italic: false
+      name: gpu_usage
+      position:
+        x: 215
+        y: 807
+      precision: 0
+      unit: '%'
+    - bold: false
+      color: '#ffffffff'
+      enabled: true
+      font_family: 微软雅黑
+      font_size: 28
+      format_string: '{value}{unit}'
+      italic: false
+      name: gpu_frequency
+      position:
+        x: 41
+        y: 810
+      precision: 0
+      unit: MHz
+    enabled: true
+  rotation: 0
+  texts:
+  - bold: false
+    color: '#ffffffff'
+    enabled: true
+    font_family: 微软雅黑
+    font_size: 36
+    italic: false
+    position:
+      x: 46
+      y: 732
+    text: GPU
+  time:
+    color: '#FFFFFFFF'
+    enabled: false
+    font_size: 18
+    position: *id001
+    text: ''

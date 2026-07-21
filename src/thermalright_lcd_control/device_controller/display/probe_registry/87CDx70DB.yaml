@@ -1,0 +1,5 @@
+# Thermalright USB mass-storage LCD (SCSI wire — not bulk, per TRCC).
+vid: 0x87CD
+pid: 0x70DB
+name: Thermalright LCD (SCSI)
+probe: scsi

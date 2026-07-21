@@ -1,0 +1,5 @@
+# Thermalright Trofeo Vision 9.16 ultrawide — LY1 bulk transport.
+vid: 0x0416
+pid: 0x5409
+name: Trofeo Vision 9.16 (LY1)
+probe: ly
