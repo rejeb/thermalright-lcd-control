@@ -81,6 +81,7 @@ and added the option to select a collection of images to cycle through on the di
 | 0418:5304 | 480x480           |
 | 87AD:70DB | 320x320,480x480   |
 | 0402:3922 | 320x320,...       |
+| 0416:5408 | 1920x480          |
 
 If your device is not in the list, you can most likely add it yourself without writing any code, thanks to the generic
 device support: see the [Add new device](#add-new-device) section.
