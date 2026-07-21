@@ -53,3 +53,36 @@ def find_legacy_class(vid: int, pid: int, width: int, height: int):
         if cls.VID == vid and cls.PID == pid and cls.W == width and cls.H == height:
             return cls
     return None
+
+
+# --- LED devices (kind: led) ---------------------------------------------
+# LED controllers auto-detected over USB. The style is resolved at detection
+# time from the device's HID handshake (see device_controller/led/detect.py).
+LED_SUPPORTED_DEVICES: list[dict] = [
+    {
+        "vid": 0x0416,
+        "pid": 0x8001,
+        "kind": "led",
+        "vendor": "Winbond",
+        "product": "LED Controller",
+    },
+]
+
+
+def led_supported_devices() -> list[dict]:
+    """Return LED device descriptors (kind: led)."""
+    return [dict(e) for e in LED_SUPPORTED_DEVICES]
+
+
+def all_device_kinds() -> set:
+    """All device kinds known to the registry."""
+    kinds = {"lcd"}
+    for e in LED_SUPPORTED_DEVICES:
+        kinds.add(e.get("kind", "lcd"))
+    return kinds
+
+
+def resolve_led_style(descriptor: dict):
+    """Map a descriptor's style name to a LedStyle (default AX120)."""
+    from thermalright_lcd_control.device_controller.led.styles import LedStyle
+    return LedStyle[descriptor.get("style", "AX120")]

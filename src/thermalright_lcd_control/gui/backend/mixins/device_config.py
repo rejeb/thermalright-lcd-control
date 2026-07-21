@@ -72,6 +72,11 @@ class DeviceConfigMixin:
         ``<width><height>`` so it only serves the device-resolution backgrounds.
         Called at init and on each switch via :meth:`select_device`."""
         self.device = device or {}
+        # LED devices have no screen resolution, media folders or theme config:
+        # branch to the LED-specific activation and skip all the LCD plumbing.
+        if self.device.get("kind") == "led":
+            self._apply_led_device(self.device)
+            return
         self.dev_width = int(self.device.get("width", 320))
         self.dev_height = int(self.device.get("height", 240))
 
@@ -105,6 +110,9 @@ class DeviceConfigMixin:
         self.device = device or {}
         if not self.device:
             return
+        # LED devices carry no seedable LCD config — nothing to prewarm.
+        if self.device.get("kind") == "led":
+            return
         try:
             self.dev_width = int(self.device.get("width", 320))
             self.dev_height = int(self.device.get("height", 240))
@@ -116,6 +124,67 @@ class DeviceConfigMixin:
             self._ensure_active_config(download_background=False)
         except Exception as e:
             self.logger.warning(f"seed device config failed: {e}")
+
+    # ── LED devices (kind: led) ───────────────────────────────────────────
+    def active_device_kind(self) -> str:
+        """``"led"`` or ``"lcd"`` for the active device (default ``"lcd"``)."""
+        return str(self.device.get("kind", "lcd")) if self.device else "lcd"
+
+    def _led_settings_path(self) -> Path:
+        dev_id = self.device.get("id") or "led"
+        return Path(self._config_dir()) / f"led_{dev_id}.json"
+
+    def _apply_led_device(self, device: dict[str, Any]) -> None:
+        """Activate an LED device: load its persisted LedDeviceSettings (or a
+        style-sized default). No dimensions, media folders or LCD config."""
+        from thermalright_lcd_control.common.supported_devices import (
+            resolve_led_style,
+        )
+        from thermalright_lcd_control.device_controller.led.led_models import (
+            LedDeviceSettings, LedZoneSettings,
+        )
+        from thermalright_lcd_control.device_controller.led.styles import STYLES
+
+        style = resolve_led_style(device)
+        style_info = STYLES[style]
+        path = self._led_settings_path()
+        settings = None
+        if path.exists():
+            try:
+                settings = LedDeviceSettings.from_dict(
+                    json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, ValueError, KeyError) as e:
+                self.logger.warning(f"LED settings load failed: {e}")
+        if settings is None:
+            settings = LedDeviceSettings(
+                zones=[LedZoneSettings() for _ in range(style_info.zone_count)]
+                if style_info.zone_count > 1 else [],
+                segment_on=[True] * style_info.segment_count)
+        self._led_style = style
+        self._led_settings = settings
+
+    def get_led_settings(self):
+        """The active LED device's :class:`LedDeviceSettings` (or a default)."""
+        from thermalright_lcd_control.device_controller.led.led_models import (
+            LedDeviceSettings,
+        )
+        return getattr(self, "_led_settings", None) or LedDeviceSettings()
+
+    def get_led_style(self):
+        """The active LED device's resolved style, or ``None`` for non-LED."""
+        return getattr(self, "_led_style", None)
+
+    def update_led_settings(self, settings) -> None:
+        """Persist the LED settings for the active device and signal the UI."""
+        self._led_settings = settings
+        path = self._led_settings_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(settings.to_dict(), indent=2),
+                            encoding="utf-8")
+        except OSError as e:
+            self.logger.warning(f"LED settings save failed: {e}")
+        self.device_changed.emit()
 
     def _media_res(self) -> tuple[int, int]:
         """Résolution côté médias : dimensions device, permutées en 90°/270°

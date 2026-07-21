@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QLabel,
     QLineEdit,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -34,6 +35,8 @@ from thermalright_lcd_control.gui.native.device_dialog import DeviceDialog
 from thermalright_lcd_control.gui.native.foreground_controls import ForegroundControls
 from thermalright_lcd_control.gui.native.overlay.editor import OverlayEditor
 from thermalright_lcd_control.gui.native.overlay.inspector import WidgetInspector
+from thermalright_lcd_control.gui.native.led.panel import LedPanel
+from thermalright_lcd_control.gui.native.led.layout_preview import LayoutPreview
 from thermalright_lcd_control.gui.native.preview_panel import PreviewPanel
 from thermalright_lcd_control.gui.native.tabs import SideTabs
 from thermalright_lcd_control.gui.native.theme import build_qss, tokens
@@ -87,10 +90,20 @@ class NativeMainWindow(TrayWindowMixin, FramelessWindow):
         self.message_banner = MessageBanner()
         root.addWidget(self.message_banner)
 
-        self.body = QGridLayout()
+        # Body is kind-switched: page 0 is the LCD editor grid, page 1 the LED
+        # control panel. The active device's kind selects the page
+        # (reload_for_device). The LCD grid keeps its own responsive relayout
+        # (_apply_body_layout) inside its page.
+        self.body_stack = QStackedWidget()
+        root.addWidget(self.body_stack, 1)
+
+        self._lcd_page = QWidget()
+        self.body = QGridLayout(self._lcd_page)
         self.body.setContentsMargins(14, 12, 14, 12)
         self.body.setSpacing(14)
-        root.addLayout(self.body, 1)
+        self.body_stack.addWidget(self._lcd_page)
+
+        self._build_led_page()
 
         self.preview = PreviewPanel(self.backend)
         self.editor = OverlayEditor(self.backend, self.preview.view, parent=self)
@@ -195,6 +208,11 @@ class NativeMainWindow(TrayWindowMixin, FramelessWindow):
         self.titlebar.set_icon_color(QColor(tokens(mode)["dim"]))
         t = tokens(mode)
         set_toggle_colors(t["accent"], t["toggle_off"])
+        # LED panel/page use plain widgets the global QSS doesn't cover — theme
+        # them from the same tokens so labels stay legible in both modes.
+        if getattr(self, "led_panel", None) is not None:
+            self.led_panel.apply_theme(mode)
+            self._led_page.setStyleSheet(f"QWidget#ledPage {{ background: {t['shell']}; }}")
 
     def eventFilter(self, obj, e):
         # relâche le focus d'un QLineEdit dès qu'on clique ailleurs (blur web)
@@ -300,7 +318,81 @@ class NativeMainWindow(TrayWindowMixin, FramelessWindow):
         body.setRowStretch(3, 1 if tall else 0)
 
     # ── rechargement lié au device actif ──────────────────────────────────
+    # ── LED page (kind: led) ──────────────────────────────────────────────
+    def _build_led_page(self) -> None:
+        """Page 1 of the body stack: the LED control panel + layout preview."""
+        from PySide6.QtWidgets import QScrollArea
+
+        self._led_page = QWidget()
+        self._led_page.setObjectName("ledPage")
+        lay = QVBoxLayout(self._led_page)
+        lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(14)
+
+        self.led_preview = LayoutPreview()
+        self.led_panel = LedPanel(on_change=self._on_led_settings_change)
+
+        # The section stack can exceed the window height → scroll it. The
+        # viewport background is left transparent so the page theme shows
+        # through (QScrollArea.setWidget re-enables autoFillBackground).
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(scroll.Shape.NoFrame)
+        scroll.setWidget(self.led_panel)
+        self.led_panel.setAutoFillBackground(False)
+        scroll.viewport().setAutoFillBackground(False)
+
+        lay.addWidget(self.led_preview)
+        lay.addWidget(scroll, 1)
+        self.body_stack.addWidget(self._led_page)
+
+    def central_kind(self) -> str:
+        """``"led"`` when the LED page is showing, else ``"lcd"``."""
+        return "led" if self.body_stack.currentWidget() is self._led_page else "lcd"
+
+    def _show_led_device(self) -> None:
+        """Bind the LED panel + preview to the active LED device and show them."""
+        from thermalright_lcd_control.device_controller.led.styles import STYLES
+        style = self.backend.get_led_style()
+        style_info = STYLES[style]
+        settings = self.backend.get_led_settings()
+        self.led_panel.apply_style(style_info)
+        self.led_panel.load_settings(settings)
+        self.led_preview.set_style(style_info)
+        self.led_preview.set_settings(settings)
+        self.led_preview.set_metrics(self._led_preview_metrics())
+        self.body_stack.setCurrentWidget(self._led_page)
+        if self.isVisible():
+            self.led_preview.start()
+
+    @staticmethod
+    def _led_preview_metrics() -> dict:
+        """Representative sensor values so the digit displays render something
+        recognisable in the preview. The running service feeds real metrics."""
+        return {
+            "cpu_temp": 45, "cpu_percent": 37, "gpu_temp": 61, "gpu_usage": 52,
+            "mem_used": 48, "mem_temp": 44, "mem_clock": 3200,
+            "disk_temp": 39, "disk_read": 120, "disk_write": 80,
+            "disk_activity": 25,
+        }
+
+    def _on_led_settings_change(self, settings) -> None:
+        """Keep the preview in sync and persist edits to the active device."""
+        self.led_preview.set_settings(settings)
+        self.backend.update_led_settings(settings)
+
     def reload_for_device(self) -> None:
+        # LED devices use a different central page and none of the LCD media /
+        # theme reload below — branch out early.
+        if self.backend.active_device_kind() == "led":
+            self._show_led_device()
+            return
+        # Keep the LCD page shown. Guarded so a partially-constructed window
+        # (test fixtures build via __new__ without the body stack) still runs
+        # the legacy reload path.
+        if getattr(self, "body_stack", None) is not None:
+            self.body_stack.setCurrentWidget(self._lcd_page)
+            self.led_preview.stop()
         self.preview.reload_device_info()
         # Key on the MEDIA resolution (rotation-swapped), not the raw device
         # dimensions: a rotation changes the media folder (<w><h> ↔ <h><w>) while

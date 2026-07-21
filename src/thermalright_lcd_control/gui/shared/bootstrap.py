@@ -23,6 +23,23 @@ from thermalright_lcd_control.gui.utils.config_loader import load_config
 from thermalright_lcd_control.gui.utils.usb_detector import USBDeviceDetector
 
 
+def append_led_devices(devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return ``devices`` plus any LED controllers currently plugged in.
+
+    LED devices are auto-detected over USB (presence + HID handshake); nothing
+    is appended when no LED hardware is connected. Existing entries preserved.
+    """
+    from thermalright_lcd_control.device_controller.led.detect import (
+        detect_led_devices,
+    )
+    result = list(devices)
+    try:
+        result.extend(detect_led_devices())
+    except Exception as e:   # detection must never block GUI startup
+        get_gui_logger().error(f"LED auto-detection failed: {e}", exc_info=True)
+    return result
+
+
 @dataclass
 class GuiRuntime:
     app: QApplication
@@ -84,7 +101,7 @@ def create_runtime(config_file: str | None) -> GuiRuntime:
         logger.error(f"Device auto-detection failed: {e}", exc_info=True)
 
     detector = USBDeviceDetector(config_file)
-    devices = detector.get_devices()
+    devices = append_led_devices(detector.get_devices())
     logger.info(f"Detected {len(devices)} supported device(s)")
 
     from thermalright_lcd_control.device_controller.controller import DeviceController

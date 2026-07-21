@@ -16,6 +16,7 @@ class TransportType(str, Enum):
     USB_BULK = "usb_bulk"
     SCSI = "scsi"
     USB_BULK_LY = "usb_bulk_ly"
+    LED = "led"
 
 
 class Transport(ABC):

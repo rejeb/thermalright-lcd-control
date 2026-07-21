@@ -58,10 +58,22 @@ and added the option to select a collection of images to cycle through on the di
     - **Network**: download/upload throughput (MB/s)
     - **System**: uptime, load average, process count
 - 🔤 **Font management** - Use any installed system font (plus bundled fallbacks) in your themes
+- 💡 **RGB LED controller support** - Drives Thermalright digital LED coolers (the `0416:8001` controller),
+  auto-detected over USB with the hardware layout identified via the device handshake. A dedicated, kind-aware control
+  panel provides:
+    - global colour (colour picker, RGB, brightness, presets) and On/Off
+    - six animation modes: static, breathing, colourful, rainbow, temperature-linked, load-linked
+    - per-zone colour/brightness/on-off for multi-zone models (PA120, LF10), with an optional zone-sync carousel
+    - CPU/GPU sensor linkage and a diagnostic test mode
+    - a **live preview that renders the real per-model layout** — including the actual digit/clock readout for the
+      digital segment displays (temperature, load, memory/disk stats, clock)
+  - 12 cooler layouts supported: AX120, PA120, AK120, LC1, LF8, LF10, LF11, LF12, LF13, LF15, CZ1, LC2
 - 📋 **System integration** - Tray icon, session autostart (starts minimized), desktop notifications; rendering pauses
   while the window is hidden to save CPU
 
 ## Supported devices
+
+### LCD displays
 
 | VID:PID   | SCREEN RESOLUTION |
 |-----------|-------------------|
@@ -72,6 +84,18 @@ and added the option to select a collection of images to cycle through on the di
 
 If your device is not in the list, you can most likely add it yourself without writing any code, thanks to the generic
 device support: see the [Add new device](#add-new-device) section.
+
+### RGB LED controllers
+
+| VID:PID   | Device                              | Supported layouts                                                          |
+|-----------|-------------------------------------|----------------------------------------------------------------------------|
+| 0416:8001 | Thermalright digital LED controller | AX120, PA120, AK120, LC1, LF8, LF10, LF11, LF12, LF13, LF15, CZ1, LC2       |
+
+The LED controller is auto-detected over USB; the specific cooler layout is resolved at connection time from the
+device handshake. A plugged-in LED controller appears as its own device tab with the dedicated LED control panel.
+
+> **Note:** LED support was developed against the reference protocol and firmware layouts. If you own one of these
+> coolers, testing and feedback are very welcome — see [Contributing](#-contributing).
 
 ## Installation
 
