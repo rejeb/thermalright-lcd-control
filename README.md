@@ -75,22 +75,28 @@ and added the option to select a collection of images to cycle through on the di
 
 ### LCD displays
 
-| VID:PID   | SCREEN RESOLUTION |
-|-----------|-------------------|
-| 0416:5302 | 320x240           |
-| 0418:5304 | 480x480           |
-| 87AD:70DB | 320x320,480x480   |
-| 0402:3922 | 320x320,...       |
-| 0416:5408 | 1920x480          |
+| VID:PID   | Chip / Family                    | Thermalright product(s)                                    | Protocol      |
+|-----------|----------------------------------|------------------------------------------------------------|---------------|
+| 0402:3922 | —                                | Frozen Warframe 420 BLACK ARGB *(tested)*                  | SCSI BOT      |
+| 0416:5302 | Winbond USBDISPLAY               | Frozen Magic 240 / 360 (HID variants)                      | HID type 2    |
+| 0416:5406 | Winbond LCD (SCSI)               | Frozen Warframe / Magic (SCSI variant)                     | SCSI          |
+| 0416:5408 | Trofeo Vision (LY)                | **Trofeo Vision                                           | LY bulk       |
+| 0416:5409 | Trofeo Vision (LY1)              | **Trofeo Vision (LY1 firmware)                             | LY bulk       |
+| 0418:5303 | ALi Corp LCD (HID type 3)        | Frozen Magic 360 SCENIC / AIO 480 variants                 | HID type 3    |
+| 0418:5304 | ALi Corp LCD (HID type 3)        | Frozen Magic 360 SCENIC / AIO 480 variants                 | HID type 3    |
+| 87AD:70DB | ChiZhu Tech GrandVision family   | AIO variants with 320x320 or 480x480 screen                | | USB Bulk    |
+| 87CD:70DB | ChiZhu Tech (variant)            | AIO variants (alternate firmware)                          | USB Bulk      |
 
-If your device is not in the list, you can most likely add it yourself without writing any code, thanks to the generic
-device support: see the [Add new device](#add-new-device) section.
+> If you own one of the other devices, please test and report — see [Contributing](#-contributing).
+>
+> If your device is not in the list, you can most likely add it yourself without writing any code, thanks to the
+> generic device support: see the [Add new device](#add-new-device) section.
 
 ### RGB LED controllers
 
-| VID:PID   | Device                              | Supported layouts                                                          |
-|-----------|-------------------------------------|----------------------------------------------------------------------------|
-| 0416:8001 | Thermalright digital LED controller | AX120, PA120, AK120, LC1, LF8, LF10, LF11, LF12, LF13, LF15, CZ1, LC2       |
+| VID:PID   | Device                              | Supported cooler layouts                                              |
+|-----------|-------------------------------------|-----------------------------------------------------------------------|
+| 0416:8001 | Thermalright digital LED controller | AX120, PA120, AK120, LC1, LF8, LF10, LF11, LF12, LF13, LF15, CZ1, LC2 |
 
 The LED controller is auto-detected over USB; the specific cooler layout is resolved at connection time from the
 device handshake. A plugged-in LED controller appears as its own device tab with the dedicated LED control panel.
