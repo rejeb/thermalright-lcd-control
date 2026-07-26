@@ -1,0 +1,18 @@
+#!/bin/sh
+# An older tarball install is not owned by dpkg; remove its stray files so they
+# cannot shadow the packaged ones. NEVER touch ~/.config — user data is not ours.
+#
+# Only the old tarball's own payload (venv/python) is removed, never
+# /opt/thermalright-lcd-control itself: the -data package owns content under that
+# directory and a recursive delete would destroy it.
+set -e
+rm -f /usr/local/bin/thermalright-lcd-control-app || true
+rm -f /etc/udev/rules.d/99-thermalright.rules || true
+for stale in venv python; do
+    d="/opt/thermalright-lcd-control/$stale"
+    if [ -e "$d" ] && ! dpkg -S "$d" >/dev/null 2>&1; then
+        rm -rf "$d" || true
+    fi
+done
+#DEBHELPER#
+exit 0

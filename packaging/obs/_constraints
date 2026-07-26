@@ -1,0 +1,10 @@
+<constraints>
+  <!-- The vendored venv plus ~480 MB of resources need more room than the
+       default worker allocation. Keep this modest: large requests find no
+       compliant workers and the build never schedules. -->
+  <hardware>
+    <disk>
+      <size unit="G">30</size>
+    </disk>
+  </hardware>
+</constraints>

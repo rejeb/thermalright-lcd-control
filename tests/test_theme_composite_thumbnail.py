@@ -53,7 +53,8 @@ class TestThemeCompositeThumbnail(unittest.TestCase):
 
     def test_render_composite_differs_from_background_only(self):
         from thermalright_lcd_control.device_controller.display.config import (
-            BackgroundType, DisplayConfig,
+            BackgroundType,
+            DisplayConfig,
         )
         with TemporaryDirectory() as d:
             self._backend(d)

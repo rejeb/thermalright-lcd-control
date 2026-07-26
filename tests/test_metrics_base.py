@@ -71,20 +71,12 @@ def test_collector_skips_provider_broken_at_init():
     assert c.collect() == {"alpha": 1.0, "beta": 2.0}
 
 
-def test_values_caches_and_keeps_dict_identity():
-    c = MetricsCollector(providers=[_Fake()])
-    with patch("time.monotonic", return_value=100.0):
-        first = c.values(max_age=10.0)
-    with patch("time.monotonic", return_value=105.0):
-        again = c.values(max_age=10.0)
-    assert again is first                      # même objet → pas de refresh
-    with patch("time.monotonic", return_value=111.0):
-        fresh = c.values(max_age=10.0)
-    assert fresh is not first                  # nouvel objet → refresh détectable
-    assert fresh == first
+def test_values_never_collects_on_the_render_path():
+    """values() is a non-blocking read of the published snapshot.
 
-
-def test_values_respects_caller_max_age():
+    Collection happens in refresh(), off the render path, so repeated reads must
+    never invoke a provider however much time passes.
+    """
     calls = {"n": 0}
 
     class _Counting(Metrics):
@@ -92,15 +84,49 @@ def test_values_respects_caller_max_age():
             calls["n"] += 1
             return calls["n"]
 
-    c = MetricsCollector(providers=[_Counting()])
+    # start_worker=False: the background thread would collect concurrently and
+    # make the call count non-deterministic.
+    c = MetricsCollector(providers=[_Counting()], start_worker=False)
+    after_init = calls["n"]                    # __init__ publishes a first snapshot
+
     with patch("time.monotonic", return_value=100.0):
-        c.values(max_age=1.0)
-    with patch("time.monotonic", return_value=100.5):
-        c.values(max_age=1.0)                  # frais → pas de collecte
-    assert calls["n"] == 1
-    with patch("time.monotonic", return_value=101.5):
-        c.values(max_age=1.0)                  # périmé → collecte
-    assert calls["n"] == 2
+        c.values()
+    with patch("time.monotonic", return_value=1_000.0):
+        c.values()
+    assert calls["n"] == after_init            # reads never collect
+
+    c.refresh()
+    assert calls["n"] == after_init + 1        # only refresh() collects
+
+
+def test_refresh_keeps_dict_identity_when_values_are_unchanged():
+    """Identity is the overlay-invalidation signal.
+
+    refresh() must publish a NEW dict only when a displayed value actually
+    changed; an unchanged collection keeps the same object so the overlay is not
+    needlessly redrawn.
+    """
+    c = MetricsCollector(providers=[_Fake()], start_worker=False)
+    first = c.values()                         # snapshot published by __init__
+
+    assert c.refresh() is False                # _Fake is constant → nothing changed
+    assert c.values() is first                 # same object → no invalidation
+
+
+def test_refresh_publishes_new_dict_when_a_value_changes():
+    counter = {"n": 0}
+
+    class _Changing(Metrics):
+        def metric_x(self):
+            counter["n"] += 1
+            return counter["n"]
+
+    c = MetricsCollector(providers=[_Changing()], start_worker=False)
+    first = c.values()
+
+    assert c.refresh() is True                 # value changed
+    assert c.values() is not first             # new object → invalidation
+    assert c.values() != first
 
 
 def test_shared_collector_is_a_singleton():

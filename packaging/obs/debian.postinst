@@ -1,0 +1,14 @@
+#!/bin/sh
+# The udev rules grant device access to the 'plugdev' group; ensure it exists.
+# Adding USERS to it is the launcher's job: a maintainer script has no invoking user.
+set -e
+if [ "$1" = "configure" ]; then
+    groupadd -f plugdev || true
+    if command -v udevadm >/dev/null 2>&1; then
+        udevadm control --reload-rules >/dev/null 2>&1 || true
+        udevadm trigger --action=add --subsystem-match=hidraw >/dev/null 2>&1 || true
+        udevadm trigger --action=add --subsystem-match=usb >/dev/null 2>&1 || true
+    fi
+fi
+#DEBHELPER#
+exit 0

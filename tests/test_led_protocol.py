@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 import struct
+
 from thermalright_lcd_control.device_controller.led import protocol as p
 
 

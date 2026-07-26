@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
-from thermalright_lcd_control.device_controller.led.effects import compute, ComputeResult
+from thermalright_lcd_control.device_controller.led.effects import ComputeResult, compute
 from thermalright_lcd_control.device_controller.led.led_models import (
-    LedDeviceSettings, LEDMode,
+    LedDeviceSettings,
+    LEDMode,
 )
 from thermalright_lcd_control.device_controller.led.styles import STYLES, LedStyle
 

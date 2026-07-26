@@ -34,10 +34,15 @@ VERSION=$(get_version)
 # System-wide install locations
 APP_DIR="/opt/$APP_NAME"
 VENV_DIR="$APP_DIR/venv"
-BIN_DIR="/usr/local/bin"
+# /usr/bin, NOT /usr/local/bin: Debian Policy forbids packages owning
+# /usr/local, and on Fedora Atomic it is a symlink to /var/usrlocal. install.sh
+# matches the packages so both produce one layout (packaging/layout.manifest).
+BIN_DIR="/usr/bin"
 DESKTOP_DIR="/usr/share/applications"
 AUTOSTART_DIR="/etc/xdg/autostart"
-UDEV_RULES_DST="/etc/udev/rules.d/99-thermalright.rules"
+UDEV_RULES_DST="/usr/lib/udev/rules.d/99-thermalright.rules"
+# Legacy location cleaned up by uninstall.sh and by the package pre-install.
+UDEV_RULES_LEGACY="/etc/udev/rules.d/99-thermalright.rules"
 
 # Legacy locations (only used to detect/clean an old installation)
 SYSTEMD_SYSTEM_DIR="/etc/systemd/system"
@@ -62,18 +67,23 @@ log_error() {
 
 check_sudo() {
     if [[ $EUID -eq 0 ]]; then
-        # Script is running as root
-        if [ -z "$SUDO_USER" ]; then
-            log_error "Please run this script with sudo, not as root directly"
-            log_info "Correct usage: sudo ./install.sh"
-            exit 1
+        # Script is running as root.
+        if [ -n "${SUDO_USER:-}" ]; then
+            # Keep the invoking user (plugdev membership + per-user data checks).
+            ACTUAL_USER="$SUDO_USER"
+            ACTUAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+            log_info "Running with sudo as user: $ACTUAL_USER"
+        else
+            # Direct root, with no invoking user: containers, images, CI. This is
+            # exactly the situation a package scriptlet is in, so behave the same
+            # way — install the files, skip anything that needs a target user.
+            # The launcher warns about missing 'plugdev' membership at startup.
+            ACTUAL_USER=""
+            ACTUAL_HOME=""
+            log_warn "Running as root with no SUDO_USER (container/CI)."
+            log_warn "No user will be added to the 'plugdev' group; each user must run:"
+            log_warn "  sudo usermod -aG plugdev \$USER   # then log out and back in"
         fi
-
-        # Keep the invoking user (plugdev membership + per-user data checks).
-        ACTUAL_USER="$SUDO_USER"
-        ACTUAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-
-        log_info "Running with sudo as user: $ACTUAL_USER"
         log_info "Installing system-wide to: $APP_DIR"
     else
         log_error "This script must be run with sudo privileges"
@@ -83,68 +93,45 @@ check_sudo() {
     fi
 }
 
-check_uv_installed() {
-    log_info "Checking if uv is installed..."
-
-    if ! command -v uv &> /dev/null; then
-        log_warn "uv is not installed. Installing uv system-wide..."
-
-        # Download and install uv directly to /usr/local/bin
-        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin INSTALLER_NO_MODIFY_PATH=1 sh
-
-        # Verify installation
-        if ! command -v uv &> /dev/null; then
-            log_error "Failed to install uv"
-            log_info "Please install uv manually: https://github.com/astral-sh/uv"
-            exit 1
-        fi
-
-        log_info "uv installed successfully at: $(command -v uv)"
-    else
-        log_info "uv is already installed at: $(command -v uv)"
-    fi
-}
-
 check_dependencies() {
     log_info "Checking system dependencies..."
-
-    # Check uv
-    check_uv_installed
-
-    # Check hidapi library
+    # uv is no longer needed: the venv ships prebuilt inside this tarball.
     check_hidapi
-
     log_info "Dependencies check passed"
 }
 
 check_hidapi() {
+    # The bundled venv links against the SHARED library at runtime; it does not
+    # compile anything, so the -dev headers are irrelevant. Check for the .so.
     log_info "Checking hidapi library..."
 
     HIDAPI_FOUND=false
 
-    # Method 1: Check for header files
-    if [ -f "/usr/include/hidapi/hidapi.h" ] || [ -f "/usr/local/include/hidapi/hidapi.h" ]; then
-        HIDAPI_FOUND=true
-        log_info "hidapi headers found"
-    fi
-
-    # Method 2: Check with pkg-config
-    if command -v pkg-config &> /dev/null; then
-        if pkg-config --exists hidapi-libusb || pkg-config --exists hidapi-hidraw; then
+    if command -v ldconfig &> /dev/null; then
+        if ldconfig -p 2>/dev/null | grep -q 'libhidapi'; then
             HIDAPI_FOUND=true
-            log_info "hidapi found via pkg-config"
+            log_info "hidapi shared library found"
         fi
     fi
 
+    # Fallback for systems without a usable ldconfig cache.
     if [ "$HIDAPI_FOUND" = false ]; then
-        log_error "hidapi library might not be installed system-wide"
-        log_info "If installation fails, install hidapi with:"
-        log_info "  Ubuntu/Debian: sudo apt-get install libhidapi-dev"
-        log_info "  RHEL/CentOS:   sudo yum install hidapi-devel"
-        log_info "  Fedora:        sudo dnf install hidapi-devel"
+        for d in /usr/lib64 /usr/lib /usr/lib/x86_64-linux-gnu /lib/x86_64-linux-gnu; do
+            if compgen -G "$d/libhidapi*.so*" > /dev/null 2>&1; then
+                HIDAPI_FOUND=true
+                log_info "hidapi shared library found in $d"
+                break
+            fi
+        done
+    fi
+
+    if [ "$HIDAPI_FOUND" = false ]; then
+        log_error "hidapi library not found; the display cannot be reached without it."
+        log_info "Install it with:"
+        log_info "  Ubuntu/Debian: sudo apt-get install libhidapi-hidraw0"
+        log_info "  Fedora:        sudo dnf install hidapi"
+        log_info "  openSUSE:      sudo zypper install libhidapi-hidraw0"
         log_info "  Arch:          sudo pacman -S hidapi"
-        log_info ""
-        log_info "Continuing installation..."
         exit 1
     fi
 }
@@ -237,13 +224,20 @@ install_udev_rules() {
         exit 1
     fi
 
+    mkdir -p "$(dirname "$UDEV_RULES_DST")"
+    # Remove a rules file left by an older install so it cannot shadow the new one.
+    rm -f "$UDEV_RULES_LEGACY"
+
     cp "$rules_src" "$UDEV_RULES_DST"
     chmod 644 "$UDEV_RULES_DST"
     log_info "Installed $UDEV_RULES_DST"
 
-    # Make sure the invoking user is in the plugdev group (create it if needed).
+    # The rules grant access to the 'plugdev' group, so the group must exist even
+    # when there is no invoking user to add to it (container/CI installs).
+    groupadd -f plugdev
+
+    # Add the invoking user to it, when we know who that is.
     if [ -n "$ACTUAL_USER" ]; then
-        groupadd -f plugdev
         if ! id -nG "$ACTUAL_USER" | grep -qw plugdev; then
             usermod -aG plugdev "$ACTUAL_USER"
             log_info "Added $ACTUAL_USER to the 'plugdev' group (log out/in to take effect)."
@@ -265,77 +259,33 @@ install_udev_rules() {
 install_application() {
     log_info "Installing $APP_NAME system-wide under $APP_DIR..."
 
-    # Create the system install directory (root-owned, read-only for users)
+    # The venv is PREBUILT and shipped in this tarball: no network, no uv, no pip.
+    # It was built at exactly $APP_DIR inside a debian:bookworm container, so its
+    # interpreter symlinks resolve only when placed back at that same path.
+    if [ ! -d "opt/$APP_NAME/venv" ]; then
+        log_error "Prebuilt venv not found at opt/$APP_NAME/venv"
+        log_error "This tarball is incomplete. Re-download it from GitHub Releases."
+        exit 1
+    fi
+
     mkdir -p "$APP_DIR"
 
-    # Copy resources and docs
     log_info "Copying application files to $APP_DIR..."
+    cp -a "opt/$APP_NAME/venv"   "$APP_DIR/"
+    cp -a "opt/$APP_NAME/python" "$APP_DIR/"
     cp -r resources "$APP_DIR/"
     cp README.md "$APP_DIR/"
     cp LICENSE "$APP_DIR/"
 
-    # Find the wheel file
-    WHEEL_FILE=$(ls *.whl 2>/dev/null | head -n 1)
-    if [ -z "$WHEEL_FILE" ]; then
-        log_error "Wheel file not found. Please run create_package.sh first."
+    if [ ! -x "$VENV_DIR/bin/python" ]; then
+        log_error "Installed venv has no usable interpreter at $VENV_DIR/bin/python"
         exit 1
     fi
-
-    log_info "Found wheel: $WHEEL_FILE"
-
-    # Check for requirements.txt with locked versions
-    if [ ! -f "requirements.txt" ]; then
-        log_error "requirements.txt not found. Package is incomplete."
-        exit 1
-    fi
-
-    # Create the shared venv (as root) and install with exact versions.
-    #
-    # The interpreter is a uv-managed Python. By default uv installs managed
-    # Pythons under root's home (~/.local/share/uv/python), which is mode 700 and
-    # therefore unreadable by other users — the venv's python symlink would then
-    # fail with "Permission denied" for normal users. Install the managed Python
-    # into a shared, world-readable directory under /opt instead.
-    log_info "Creating virtual environment and installing application..."
-    log_info "Using locked dependency versions from requirements.txt"
-
-    export UV_PYTHON_INSTALL_DIR="$APP_DIR/python"
-    mkdir -p "$UV_PYTHON_INSTALL_DIR"
-
-    # Python version to use (matches requires-python in pyproject.toml).
-    PYTHON_VERSION="3.14"
-
-    # Refresh uv (and its managed-Python version index) so the newest patch
-    # release required by pyproject.toml is available. Best-effort: only works
-    # when uv was installed via the standalone installer.
-    log_info "Updating uv to refresh the managed-Python index..."
-    uv self update || log_warn "uv self update skipped (uv not managed by its installer)"
-
-    # Ensure the required managed Python is available in the shared location.
-    uv python install --python-preference only-managed "$PYTHON_VERSION"
-
-    # Create the venv from the managed Python; --relocatable keeps the venv
-    # scripts using paths relative to the venv (robust under /opt).
-    uv venv --python "$PYTHON_VERSION" --python-preference only-managed --relocatable "$VENV_DIR"
-    uv pip install --python "$VENV_DIR" -r requirements.txt
-    uv pip install --python "$VENV_DIR" --no-deps "$WHEEL_FILE"
-
-    # Verify Python version in the venv
-    VENV_PYTHON_VERSION=$("$VENV_DIR/bin/python" --version 2>&1)
-    log_info "Virtual environment created with $VENV_PYTHON_VERSION"
-
-    # Verify installation
-    if [ -f "$VENV_DIR/bin/thermalright-lcd-control-app" ]; then
-        log_info "Application and all dependencies installed successfully"
-    else
-        log_error "Application scripts not found after installation"
-        exit 1
-    fi
+    log_info "Virtual environment installed: $("$VENV_DIR/bin/python" --version 2>&1)"
 
     # Copy the per-user launcher (resolves $HOME and bootstraps config at runtime)
     if [ -f "usr/bin/$APP_NAME-app" ]; then
-        cp "usr/bin/$APP_NAME-app" "$BIN_DIR/"
-        chmod 755 "$BIN_DIR/$APP_NAME-app"
+        install -Dm755 "usr/bin/$APP_NAME-app" "$BIN_DIR/$APP_NAME-app"
         log_info "Launcher script installed: $BIN_DIR/$APP_NAME-app"
     else
         log_error "Launcher script not found: usr/bin/$APP_NAME-app"
@@ -345,8 +295,9 @@ install_application() {
     # Keep /opt root-owned and world-readable
     chown -R root:root "$APP_DIR"
     chmod -R a+rX "$APP_DIR"
+    chmod 755 "$APP_DIR"
 
-    log_info "Application installed successfully from wheel"
+    log_info "Application installed successfully"
 }
 
 configure_selinux() {
@@ -419,7 +370,7 @@ install_autostart() {
 main() {
     log_info "Starting installation of $APP_NAME v$VERSION"
     log_info "System-wide install (GUI only, no system service); config is per-user"
-    log_info "Using uv for dependency management"
+    log_info "Installing a prebuilt runtime: no network access required"
 
     # Check that script is run with sudo
     check_sudo
@@ -458,7 +409,7 @@ main() {
     log_info "  ✅ GUI application installed system-wide (available to all users)"
     log_info "  ✅ Autostart at login (minimized to tray)"
     log_info "  ✅ udev rules installed (device access without root)"
-    log_info "  ✅ Dependencies managed with uv"
+    log_info "  ✅ Python runtime and dependencies bundled (nothing downloaded)"
     log_info ""
     log_info "Usage:"
     log_info "  GUI: $APP_NAME-app  (configure a device from the window)"

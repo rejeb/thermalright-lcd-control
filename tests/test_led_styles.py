@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 from thermalright_lcd_control.device_controller.led.styles import (
-    LedStyle, STYLES, resolve_pm,
+    STYLES,
+    LedStyle,
+    resolve_pm,
 )
 
 

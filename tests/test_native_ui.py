@@ -35,6 +35,7 @@ class TestPixmaps(unittest.TestCase):
 
     def test_pixmap_from_data_url_roundtrip(self):
         import base64
+
         from thermalright_lcd_control.gui.shared.pixmaps import pixmap_from_data_url
         png = vu.png_bytes(vu.to_rgb(vu.solid(10, 10, (1, 2, 3, 255))))
         url = "data:image/png;base64," + base64.b64encode(png).decode()
@@ -229,11 +230,12 @@ class TestDeviceDialogFocus(unittest.TestCase):
     def test_owner_activation_brings_dialog_to_front(self):
         from PySide6.QtCore import QEvent
         from PySide6.QtWidgets import QWidget
-        from thermalright_lcd_control.gui.native.device_dialog import DeviceDialog
+
         # pas de show()/processEvents réels : sous offscreen, pomper la boucle
         # d'événements peut toucher des objets Qt détruits par d'autres tests
         # (segfault) → QTimer.singleShot stubbé en appel immédiat
         from thermalright_lcd_control.gui.native import device_dialog as dd
+        from thermalright_lcd_control.gui.native.device_dialog import DeviceDialog
         _app()
         owner = QWidget()
         dialog = DeviceDialog(self._Backend(), parent=owner)
@@ -265,6 +267,7 @@ class TestConfirmDialog(unittest.TestCase):
     def test_buttons_and_focus_filter(self):
         from PySide6.QtCore import QEvent
         from PySide6.QtWidgets import QDialog, QPushButton, QWidget
+
         from thermalright_lcd_control.gui.native import confirm_dialog as cd
         _app()
         owner = QWidget()

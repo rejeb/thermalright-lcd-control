@@ -4,7 +4,7 @@ A Linux application for controlling Thermalright LCD displays with an intuitive 
 
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
-![version](https://img.shields.io/badge/version-2.0.0-green.svg)
+![version](https://img.shields.io/badge/version-2.1.0-green.svg)
 
 ## Overview
 
@@ -28,6 +28,36 @@ Feel free to contribute to this project and let me know if the application is wo
 
 For backgrounds, i have included all media formats supported by the Windows application
 and added the option to select a collection of images to cycle through on the display.
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="33%" align="center">
+      <img src="doc/device-configuration.png" alt="Device configuration" width="100%"></a><br>
+      <sub><b>Device configuration</b></sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="doc/bg.png" alt="Background selection" width="100%"></a><br>
+      <sub><b>Backgrounds</b></sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="doc/foreground.png" alt="Foreground selection" width="100%"></a><br>
+      <sub><b>Foregrounds</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" align="center">
+      <img src="doc/themes.png" alt="Theme presets" width="100%"></a><br>
+      <sub><b>Themes</b></sub>
+    </td>
+    <td width="33%" align="center">
+      <img src="doc/wigdets.png" alt="Widget editor" width="100%"></a><br>
+      <sub><b>Widget editor</b></sub>
+    </td>
+    <td width="33%"></td>
+  </tr>
+</table>
 
 ## Features
 
@@ -106,15 +136,77 @@ device handshake. A plugged-in LED controller appears as its own device tab with
 
 ## Installation
 
-### Download Packages
+The application bundles its own Python runtime and every dependency, so
+installing needs **no network access** and does not touch your system Python.
 
-Download the appropriate package for your Linux distribution from
-the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) page:
+### From a package manager (recommended)
 
-- **`.targ.gz`** - For any distribution
+Packages are built by the [openSUSE Build Service](https://download.opensuse.org/repositories/home:/rbenrejeb:/thermalright-lcd-control/)
+for Fedora, Debian and Ubuntu (x86_64 only). Add the repository once, and
+upgrades then arrive with the rest of your system updates.
 
-### Installation
+**Fedora** (41, 42, 43, 44)
 
+```bash
+sudo dnf config-manager addrepo --from-repofile="https://download.opensuse.org/repositories/home:rbenrejeb:thermalright-lcd-control/Fedora_$(rpm -E %fedora)/home:rbenrejeb:thermalright-lcd-control.repo"
+sudo dnf install thermalright-lcd-control
+```
+
+**Debian** (12, 13)
+
+Set `DISTRO` to `Debian_12` or `Debian_13`, then:
+
+```bash
+DISTRO=Debian_13
+echo "deb http://download.opensuse.org/repositories/home:/rbenrejeb:/thermalright-lcd-control/$DISTRO/ /" \
+  | sudo tee /etc/apt/sources.list.d/home:rbenrejeb:thermalright-lcd-control.list
+curl -fsSL "https://download.opensuse.org/repositories/home:rbenrejeb:thermalright-lcd-control/$DISTRO/Release.key" \
+  | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/home_rbenrejeb_thermalright-lcd-control.gpg > /dev/null
+sudo apt update
+sudo apt install thermalright-lcd-control
+```
+
+**Ubuntu** (22.04, 24.04, 24.10, 25.04, 25.10, 26.04)
+
+Same as Debian, with `DISTRO` set to `xUbuntu_` plus your release — check it with
+`lsb_release -rs`:
+
+```bash
+DISTRO="xUbuntu_$(lsb_release -rs)"
+```
+
+Uninstall with `sudo dnf remove thermalright-lcd-control` or
+`sudo apt remove thermalright-lcd-control`; your themes and configuration are
+left in place.
+
+After installing, add yourself to the `plugdev` group so the display is
+reachable without root, then log out and back in:
+
+```bash
+sudo usermod -aG plugdev "$USER"
+```
+
+The application starts minimized to the tray at login. Your configuration and
+themes live in `~/.config/thermalright-lcd-control` and are never touched by
+package upgrades or removal.
+
+### On atomic / image-based distributions (Bazzite, Silverblue, bootc)
+
+`/usr` is read-only, so the package is layered onto the OS image. There is no
+`dnf` on these systems, so drop the repository file in place yourself:
+
+```bash
+sudo curl -fsSL -o /etc/yum.repos.d/home:rbenrejeb:thermalright-lcd-control.repo \
+  "https://download.opensuse.org/repositories/home:rbenrejeb:thermalright-lcd-control/Fedora_$(rpm -E %fedora)/home:rbenrejeb:thermalright-lcd-control.repo"
+sudo rpm-ostree install thermalright-lcd-control
+sudo systemctl reboot
+```
+
+Layering requires a reboot and is re-applied on every OS update. If a future
+base image ever conflicts with a layered dependency, remove the package with
+`rpm-ostree uninstall thermalright-lcd-control` to unblock the update.
+
+### From the tarball (any distribution)
 1. **Check** for required dependencies:
    /!\ Make sure you have these required dependencies installed:
     - python3
@@ -124,24 +216,28 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 
 2. **Download** the `.tar.gz` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/2.0.0/thermalright-lcd-control-2.0.0.tar.gz -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/2.1.0/thermalright-lcd-control-2.1.0.tar.gz -P /tmp/
    ```
 
 3. **Untar** the archive file:
    ```bash
    cd /tmp
    ```
-   ```bash  
-   tar -xvf thermalright-lcd-control-2.0.0.tar.gz
+   ```bash
+   tar -xvf thermalright-lcd-control-2.1.0.tar.gz
    ```
 
 4. **Install** application:
    ```bash
-    cd thermalright-lcd-control-2.0.0
+    cd thermalright-lcd-control-2.1.0
    ```
    ```bash
     sudo bash install.sh
    ```
+
+To remove it: `sudo ./uninstall.sh`.
+
+Both installation methods produce exactly the same files on disk.
 
 That's it! The application is now installed. You can see the default theme displayed on your Thermalright LCD device.
 
@@ -152,7 +248,9 @@ If nothing is displayed on your device:
 - Make sure the application is running (check the system tray)
 - Check the application logs located in `~/.local/state/thermalright-lcd-control/` (also reachable from the tray menu
   via "Open Logs")
-- Make sure the udev rules were installed (`/etc/udev/rules.d/99-thermalright.rules`) and re-plug the device
+- Make sure the udev rules were installed (`/usr/lib/udev/rules.d/99-thermalright.rules`) and re-plug the device
+- Make sure your user is in the `plugdev` group (`groups | grep plugdev`); if not,
+  run `sudo usermod -aG plugdev "$USER"` and log out and back in
 
 If the device is detected but the display stays black, the frame header is probably not correct for your device.
 If an image is displayed but looks blurry or scrambled, the image encoding does not match your device.

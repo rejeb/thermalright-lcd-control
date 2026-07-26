@@ -12,6 +12,16 @@ CONFIG_DIR="$HOME/.config/thermalright-lcd-control"
 
 mkdir -p "$CONFIG_DIR"
 
+# Device access requires membership in 'plugdev' (granted by the udev rules).
+# install.sh can add the user because it knows $SUDO_USER; a package scriptlet
+# cannot, so warn here instead. Never fatal: the GUI is still usable without a
+# device attached.
+if ! id -nG "$(id -un)" 2>/dev/null | grep -qw plugdev; then
+    echo "thermalright-lcd-control: WARNING: user '$(id -un)' is not in the 'plugdev' group;" >&2
+    echo "  the display may not be reachable without root. To fix:" >&2
+    echo "    sudo usermod -aG plugdev $(id -un)   # then log out and back in" >&2
+fi
+
 # Seed per-user DATA (device config + themes) once. Preserved across upgrades so
 # the user keeps their configured device, saved themes and uploaded media.
 if [ ! -d "$CONFIG_DIR/config" ]; then
@@ -20,9 +30,24 @@ fi
 if [ ! -d "$CONFIG_DIR/themes" ]; then
     [ -d "$APP_ROOT/resources/themes" ] && cp -R "$APP_ROOT/resources/themes" "$CONFIG_DIR/"
 fi
-# Note: a themes layout that no longer matches this version is handled at install
-# time (install.sh asks for confirmation before wiping themes + device config),
-# never silently here, because the launcher may run unattended at login.
+# Themes media/presets must live under a per-resolution folder, e.g.
+# themes/backgrounds/320240/. An outdated tree still renders wrongly, but the
+# launcher must NEVER delete user data: it can run unattended at login, and a
+# package install cannot prompt. install.sh handles the interactive wipe.
+for sub in backgrounds foregrounds presets; do
+    [ -d "$CONFIG_DIR/themes/$sub" ] || continue
+    while IFS= read -r entry; do
+        [ -n "$entry" ] || continue
+        name="$(basename "$entry")"
+        if [ -f "$entry" ] || ! [[ "$name" =~ ^[0-9]+[a-z]?$ ]]; then
+            echo "thermalright-lcd-control: WARNING: outdated themes layout at themes/$sub/$name" >&2
+            echo "  Re-run the installer (sudo ./install.sh) to migrate, or remove" >&2
+            echo "  $CONFIG_DIR/themes to re-seed on next launch." >&2
+            break
+        fi
+    done < <(find "$CONFIG_DIR/themes/$sub" -mindepth 1 -maxdepth 1 2>/dev/null)
+done
+
 # Rewrite any bundled relative ./resources/ paths in the seeded data to the user
 # config dir (idempotent: a no-op once already rewritten).
 find "$CONFIG_DIR/config" "$CONFIG_DIR/themes" -type f \

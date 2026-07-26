@@ -2,7 +2,6 @@
 import unittest
 
 from thermalright_lcd_control.common.logging_config import (
-    LoggerConfig,
     get_gui_logger,
     get_log_file_path,
     get_service_logger,

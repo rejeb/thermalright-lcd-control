@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
-from thermalright_lcd_control.device_controller.led.zones import active_zone
 from thermalright_lcd_control.device_controller.led.led_models import (
-    LedDeviceSettings, LedZoneSettings,
+    LedDeviceSettings,
+    LedZoneSettings,
 )
+from thermalright_lcd_control.device_controller.led.zones import active_zone
 
 
 def _settings(n, sync, interval):

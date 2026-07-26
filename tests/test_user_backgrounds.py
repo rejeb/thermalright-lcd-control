@@ -5,7 +5,6 @@ from pathlib import Path
 import pyvips
 
 from thermalright_lcd_control.device_controller.display import vips_utils as vu
-
 from thermalright_lcd_control.gui.components import user_backgrounds as ub
 
 

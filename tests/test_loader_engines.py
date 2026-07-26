@@ -23,8 +23,8 @@ class TestLoaderBuildsEngines(unittest.TestCase):
              mock.patch("threading.Thread"):
             engines = loader.start_all()
         bgd.assert_called_once()                       # device built as sink
-        self.assertIn("build_generator", bgd.call_args.kwargs)
-        self.assertEqual(bgd.call_args.kwargs["build_generator"], False)
+        # The device is a pure sink: it owns no DisplayGenerator (RenderEngine
+        # does), so the loader no longer negotiates a build_generator flag.
         self.assertEqual(RE.call_args.kwargs.get("sink"), device)
         engine.attach_event_bus.assert_called_once_with(bus, "dev1")
         self.assertEqual(engines, [engine])

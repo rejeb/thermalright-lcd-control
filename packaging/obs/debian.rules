@@ -1,0 +1,50 @@
+#!/usr/bin/make -f
+# Pure repack: the venv is prebuilt. Every debhelper step that would inspect,
+# byte-compile, strip or shebang-mangle the bundled interpreter is disabled.
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+override_dh_auto_test:
+override_dh_strip:
+override_dh_strip_nondeterminism:
+override_dh_shlibdeps:
+override_dh_dwz:
+override_dh_python3:
+# The bundled CPython carries a build-time rpath (/tools/deps/lib) from
+# python-build-standalone; dh_usrlocal/dh_fixperms must not rewrite the payload.
+override_dh_usrlocal:
+
+override_dh_auto_install:
+	# Main package payload
+	mkdir -p debian/thermalright-lcd-control/opt/thermalright-lcd-control
+	cp -a opt/thermalright-lcd-control/venv \
+	      debian/thermalright-lcd-control/opt/thermalright-lcd-control/
+	cp -a opt/thermalright-lcd-control/python \
+	      debian/thermalright-lcd-control/opt/thermalright-lcd-control/
+	install -Dm644 README.md debian/thermalright-lcd-control/opt/thermalright-lcd-control/README.md
+	install -Dm644 LICENSE   debian/thermalright-lcd-control/opt/thermalright-lcd-control/LICENSE
+	install -Dm755 usr/bin/thermalright-lcd-control-app \
+	      debian/thermalright-lcd-control/usr/bin/thermalright-lcd-control-app
+	install -Dm644 thermalright-lcd-control.desktop \
+	      debian/thermalright-lcd-control/usr/share/applications/thermalright-lcd-control.desktop
+	install -Dm644 99-thermalright.rules \
+	      debian/thermalright-lcd-control/usr/lib/udev/rules.d/99-thermalright.rules
+	install -Dm644 thermalright-lcd-control.desktop \
+	      debian/thermalright-lcd-control/etc/xdg/autostart/thermalright-lcd-control.desktop
+	sed -i 's|^Exec=.*|Exec=thermalright-lcd-control-app --minimized|' \
+	      debian/thermalright-lcd-control/etc/xdg/autostart/thermalright-lcd-control.desktop
+	grep -q X-GNOME-Autostart-enabled \
+	      debian/thermalright-lcd-control/etc/xdg/autostart/thermalright-lcd-control.desktop \
+	      || echo 'X-GNOME-Autostart-enabled=true' >> \
+	      debian/thermalright-lcd-control/etc/xdg/autostart/thermalright-lcd-control.desktop
+	sed -i 's|^Icon=.*|Icon=/opt/thermalright-lcd-control/resources/256x256/icon.png|' \
+	      debian/thermalright-lcd-control/usr/share/applications/thermalright-lcd-control.desktop \
+	      debian/thermalright-lcd-control/etc/xdg/autostart/thermalright-lcd-control.desktop
+	chmod 755 debian/thermalright-lcd-control/opt/thermalright-lcd-control
+	# Data package payload
+	mkdir -p debian/thermalright-lcd-control-data/opt/thermalright-lcd-control
+	cp -a resources debian/thermalright-lcd-control-data/opt/thermalright-lcd-control/
+	chmod 755 debian/thermalright-lcd-control-data/opt/thermalright-lcd-control

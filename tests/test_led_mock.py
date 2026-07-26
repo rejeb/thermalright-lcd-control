@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
-from thermalright_lcd_control.device_controller.led.mock import MockLedDevice, CaptureSink
-from thermalright_lcd_control.device_controller.led.styles import LedStyle
 from thermalright_lcd_control.device_controller.led import protocol as p
+from thermalright_lcd_control.device_controller.led.mock import CaptureSink, MockLedDevice
+from thermalright_lcd_control.device_controller.led.styles import LedStyle
 
 
 def test_mock_handshake_resolves_style():

@@ -7,8 +7,9 @@ from tempfile import TemporaryDirectory
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from thermalright_lcd_control.device_controller.display import vips_utils as vu
 from PySide6.QtWidgets import QApplication
+
+from thermalright_lcd_control.device_controller.display import vips_utils as vu
 
 _PRESET_YAML = """\
 display:

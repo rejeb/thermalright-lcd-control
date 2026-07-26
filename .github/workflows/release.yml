@@ -1,0 +1,107 @@
+# MANUAL TRIGGER ONLY.
+# Do NOT add `push`, `pull_request`, `schedule` or any other automatic trigger.
+# This is a hard project requirement — see
+# docs/superpowers/specs/2026-07-26-linux-packaging-design.md
+name: Build and publish packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: "Attach the tarball to a GitHub Release"
+        type: boolean
+        default: false
+      publish_to_obs:
+        description: "Upload to the openSUSE Build Service"
+        type: boolean
+        default: false
+      obs_project:
+        description: "OBS project (e.g. home:user:thermalright-lcd-control)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: version
+        run: |
+          v=$(python3 -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      # Builds inside debian:bookworm so the venv's glibc floor is 2.36.
+      - name: Build vendored venv
+        run: ./packaging/build-venv.sh
+
+      - name: Assemble tarball
+        run: ./packaging/build-tarball.sh
+
+      - name: Verify tarball/package equivalence
+        run: ./tests/packaging/test-layout-equivalence.sh
+
+      - name: Migration test
+        run: ./tests/packaging/test-migration.sh
+
+      # Full Fedora/openSUSE/Debian/Ubuntu matrix. Slow, and OBS rebuilds for
+      # every target anyway — but this is the last gate before publishing.
+      - name: Install/remove tests (all distros)
+        run: ./tests/packaging/test-install-remove.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-tarball
+          path: releases/thermalright-lcd-control-*.tar.gz
+          retention-days: 7
+
+  publish-release:
+    needs: build
+    if: inputs.publish_release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: source-tarball
+          path: releases
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build.outputs.version }}
+          files: releases/thermalright-lcd-control-*.tar.gz
+          generate_release_notes: true
+
+  publish-obs:
+    needs: build
+    if: inputs.publish_to_obs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: source-tarball
+          path: releases
+      - name: Install osc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq osc
+      - name: Configure osc credentials
+        env:
+          OBS_USERNAME: ${{ secrets.OBS_USERNAME }}
+          OBS_PASSWORD: ${{ secrets.OBS_PASSWORD }}
+        run: |
+          mkdir -p ~/.config/osc
+          cat > ~/.config/osc/oscrc <<EOF
+          [general]
+          apiurl = https://api.opensuse.org
+          [https://api.opensuse.org]
+          user = $OBS_USERNAME
+          pass = $OBS_PASSWORD
+          EOF
+          chmod 600 ~/.config/osc/oscrc
+      - name: Publish to OBS
+        run: ./packaging/obs/publish.sh "${{ inputs.obs_project }}"

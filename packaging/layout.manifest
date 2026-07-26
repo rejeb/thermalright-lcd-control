@@ -1,0 +1,15 @@
+# Single source of truth for the installed layout.
+# Both install.sh and the distro packages MUST produce exactly this.
+# Format: TYPE<TAB>MODE<TAB>PATH   (TYPE: d=dir, f=file, t=tree)
+# Spec: docs/superpowers/specs/2026-07-26-linux-packaging-design.md
+
+d	755	/opt/thermalright-lcd-control
+t	755	/opt/thermalright-lcd-control/venv
+t	755	/opt/thermalright-lcd-control/python
+t	755	/opt/thermalright-lcd-control/resources
+f	644	/opt/thermalright-lcd-control/README.md
+f	644	/opt/thermalright-lcd-control/LICENSE
+f	755	/usr/bin/thermalright-lcd-control-app
+f	644	/usr/share/applications/thermalright-lcd-control.desktop
+f	644	/etc/xdg/autostart/thermalright-lcd-control.desktop
+f	644	/usr/lib/udev/rules.d/99-thermalright.rules
