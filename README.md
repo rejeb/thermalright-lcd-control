@@ -130,15 +130,17 @@ the [Releases](https://www.github.com/rejeb/thermalright-lcd-control/releases) p
 3. **Untar** the archive file:
    ```bash
    cd /tmp
-   
+   ```
+   ```bash  
    tar -xvf thermalright-lcd-control-2.0.0.tar.gz
    ```
 
 4. **Install** application:
    ```bash
-   cd /thermalright-lcd-control
-   
-   sudo bash install.sh
+    cd thermalright-lcd-control-2.0.0
+   ```
+   ```bash
+    sudo bash install.sh
    ```
 
 That's it! The application is now installed. You can see the default theme displayed on your Thermalright LCD device.
