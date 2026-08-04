@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 from thermalright_lcd_control.device_controller.display import vips_utils as vu
-
 from thermalright_lcd_control.device_controller.display.config import BackgroundType
 from thermalright_lcd_control.device_controller.display.generator import DisplayGenerator
 

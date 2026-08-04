@@ -11,8 +11,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from thermalright_lcd_control.device_controller.display import vips_utils as vu  # noqa: E402
-from thermalright_lcd_control.device_controller.display.config_loader import ConfigLoader  # noqa: E402
-from thermalright_lcd_control.device_controller.display.text_renderer import TextRenderer  # noqa: E402
+from thermalright_lcd_control.device_controller.display.config_loader import (
+    ConfigLoader,  # noqa: E402
+)
+from thermalright_lcd_control.device_controller.display.text_renderer import (
+    TextRenderer,  # noqa: E402
+)
 
 
 def _app():
@@ -60,7 +64,8 @@ class TestWeekdayWidget(unittest.TestCase):
 
     def test_adapter_maps_weekday_clock_widget(self):
         from thermalright_lcd_control.gui.backend.app_backend import (
-            OverlayWidgetsAdapter, TextStyle,
+            OverlayWidgetsAdapter,
+            TextStyle,
         )
         widgets = [{"id": 1, "type": "clock", "mode": "weekday", "fx": 0.1, "fy": 0.2,
                     "font_size": 22, "color": "#FFFFFFFF", "font_family": None,

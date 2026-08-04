@@ -12,15 +12,18 @@ APP_NAME="thermalright-lcd-control"
 
 # New system-wide install locations
 APP_DIR="/opt/$APP_NAME"
-BIN_DIR="/usr/local/bin"
+BIN_DIR="/usr/bin"
+# Older installs put the launcher here; cleaned up too so it cannot shadow.
+BIN_DIR_LEGACY="/usr/local/bin"
 DESKTOP_DIR="/usr/share/applications"
 AUTOSTART_DIR="/etc/xdg/autostart"
 
 # Legacy locations (old version)
 SYSTEMD_SYSTEM_DIR="/etc/systemd/system"
 
-# udev rules file
-UDEV_RULES_FILE="/etc/udev/rules.d/99-thermalright.rules"
+# udev rules file (vendor dir) plus the location older installs used.
+UDEV_RULES_FILE="/usr/lib/udev/rules.d/99-thermalright.rules"
+UDEV_RULES_FILE_LEGACY="/etc/udev/rules.d/99-thermalright.rules"
 
 # Set to 1 when invoked from install.sh (--from-install): preserves user config
 # and skips all interactive prompts.
@@ -46,18 +49,21 @@ log_error() {
 
 check_sudo() {
     if [[ $EUID -eq 0 ]]; then
-        # Script is running as root
-        if [ -z "$SUDO_USER" ]; then
-            log_error "Please run this script with sudo, not as root directly"
-            log_info "Correct usage: sudo ./uninstall.sh"
-            exit 1
+        # Script is running as root.
+        if [ -n "${SUDO_USER:-}" ]; then
+            # Get the actual user info when running with sudo
+            ACTUAL_USER="$SUDO_USER"
+            ACTUAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+            log_info "Running with sudo as user: $ACTUAL_USER"
+        else
+            # Direct root, no invoking user: containers, images, CI. Remove the
+            # system files; per-user data is left untouched (we cannot know whose
+            # it is, and destroying it silently would be wrong).
+            ACTUAL_USER=""
+            ACTUAL_HOME=""
+            log_warn "Running as root with no SUDO_USER (container/CI):"
+            log_warn "removing system files only; per-user config is left in place."
         fi
-
-        # Get the actual user info when running with sudo
-        ACTUAL_USER="$SUDO_USER"
-        ACTUAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-
-        log_info "Running with sudo as user: $ACTUAL_USER"
     else
         log_error "This script must be run with sudo privileges"
         log_info "Removing /opt, udev rules and system entries requires root access"
@@ -105,14 +111,18 @@ remove_system_service() {
 remove_udev_rules() {
     log_info "Removing udev rules..."
 
-    if [ -f "$UDEV_RULES_FILE" ]; then
-        rm -f "$UDEV_RULES_FILE"
-        log_info "udev rules removed: $UDEV_RULES_FILE"
-
-        if command -v udevadm &> /dev/null; then
-            udevadm control --reload-rules || true
-            log_info "udev rules reloaded"
+    removed=false
+    for rules in "$UDEV_RULES_FILE" "$UDEV_RULES_FILE_LEGACY"; do
+        if [ -f "$rules" ]; then
+            rm -f "$rules"
+            log_info "udev rules removed: $rules"
+            removed=true
         fi
+    done
+
+    if [ "$removed" = true ] && command -v udevadm &> /dev/null; then
+        udevadm control --reload-rules || true
+        log_info "udev rules reloaded"
     fi
 
     # The user's 'plugdev' group membership is left intact (it may be used by
@@ -128,12 +138,15 @@ remove_system_installation() {
         log_info "Application directory removed: $APP_DIR"
     fi
 
-    # Launchers: new (-app) and legacy (-gui/-service)
-    for exe in "$APP_NAME-app" "$APP_NAME-gui" "$APP_NAME-service"; do
-        if [ -f "$BIN_DIR/$exe" ]; then
-            rm -f "$BIN_DIR/$exe"
-            log_info "Executable removed: $BIN_DIR/$exe"
-        fi
+    # Launchers: new (-app) and legacy (-gui/-service), in both the current
+    # location and the /usr/local/bin one older installs used.
+    for dir in "$BIN_DIR" "$BIN_DIR_LEGACY"; do
+        for exe in "$APP_NAME-app" "$APP_NAME-gui" "$APP_NAME-service"; do
+            if [ -f "$dir/$exe" ]; then
+                rm -f "$dir/$exe"
+                log_info "Executable removed: $dir/$exe"
+            fi
+        done
     done
 
     # System desktop entry

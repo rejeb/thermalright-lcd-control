@@ -3,7 +3,6 @@ import unittest
 from thermalright_lcd_control.gui.backend.app_backend import (
     OverlayWidgetsAdapter,
     TextStyle,
-    _text_anchor_gap,
 )
 
 

@@ -1,6 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 """Startup update check: version comparison and best-effort GitHub fetch."""
-import io
 import json
 import unittest
 from unittest import mock

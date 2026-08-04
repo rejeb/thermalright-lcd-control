@@ -1,0 +1,38 @@
+Source: thermalright-lcd-control
+Section: utils
+Priority: optional
+Maintainer: REJEB BEN REJEB <benrejebrejeb@gmail.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/rejeb/thermalright-lcd-control
+
+Package: thermalright-lcd-control
+Architecture: amd64
+Depends: ${misc:Depends},
+         thermalright-lcd-control-data (= ${source:Version}),
+         libhidapi-hidraw0 | libhidapi-libusb0,
+         libusb-1.0-0,
+         libgl1,
+         libegl1,
+         libdbus-1-3,
+         libglib2.0-0 | libglib2.0-0t64,
+         libfontconfig1,
+         libfreetype6,
+         libxkbcommon0,
+         libxkbcommon-x11-0,
+         libxcb-cursor0,
+         libxcb-icccm4,
+         libxcb-image0,
+         libxcb-keysyms1,
+         libxcb-render-util0,
+         libxcb-shape0,
+         libxcb-util1
+Description: Thermalright LCD Control
+ GUI application to control Thermalright LCD displays on Linux.
+ Bundles its own Python runtime and dependencies under /opt.
+
+Package: thermalright-lcd-control-data
+Architecture: all
+Depends: ${misc:Depends}
+Description: Themes, fonts and icons for thermalright-lcd-control
+ Architecture-independent resources (themes, fonts, icons).

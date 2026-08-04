@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
-from thermalright_lcd_control.device_controller.led_controller import LedController
+from thermalright_lcd_control.device_controller.led.led_models import (
+    LedDeviceSettings,
+    LEDMode,
+)
 from thermalright_lcd_control.device_controller.led.mock import MockLedDevice
 from thermalright_lcd_control.device_controller.led.styles import LedStyle
-from thermalright_lcd_control.device_controller.led.led_models import (
-    LedDeviceSettings, LEDMode,
-)
+from thermalright_lcd_control.device_controller.led_controller import LedController
 
 
 def test_loop_sends_frames_to_sink():

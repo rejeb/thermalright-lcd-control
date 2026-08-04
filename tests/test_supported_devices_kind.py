@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 from thermalright_lcd_control.common.supported_devices import (
-    led_supported_devices, all_device_kinds,
+    all_device_kinds,
+    led_supported_devices,
 )
 
 

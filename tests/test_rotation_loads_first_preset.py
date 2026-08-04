@@ -6,7 +6,6 @@ current theme no longer corresponds to the new orientation, so reload_for_device
 selects the first preset of the new orientation into the live preview. Rotation is
 NOT auto-saved: the active config on disk stays untouched until the user saves.
 """
-import json
 import os
 import unittest
 from pathlib import Path

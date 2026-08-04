@@ -1,20 +1,25 @@
 # SPDX-License-Identifier: Apache-2.0
-"""FrameEncodeCache must not retain encoded frames of older overlay versions:
-only the current version is ever re-sent, so a version bump makes every older
-entry dead weight (up to hundreds of MB for an RGB565 clip)."""
+"""FrameEncodeCache holds at most one clip of encoded frames.
+
+Entries are keyed on frame index alone. A metrics change no longer creates a new
+overlay-version dimension: RenderEngine re-encodes every frame in place from its
+background pass, so stale and fresh entries never coexist. The bound therefore
+only has to track the clip length, which keeps an RGB565 clip from growing into
+hundreds of MB.
+"""
 from thermalright_lcd_control.device_controller.display.frame_cache import FrameEncodeCache
 
 
-def test_version_bump_evicts_older_versions_eagerly():
+def test_reencoding_a_frame_replaces_it_in_place():
     c = FrameEncodeCache()
     c.set_frame_count(10)
     for i in range(10):
-        c.store(i, 0, b"v0")
+        c.store(i, b"v0")
     assert len(c) == 10
-    c.store(0, 1, b"v1")            # first frame of the new overlay version
-    assert c.get(0, 1) == b"v1"
-    assert c.get(1, 0) is None      # old version gone immediately
-    assert len(c) == 1
+
+    c.store(0, b"v1")               # same frame, freshly encoded overlay
+    assert c.get(0) == b"v1"        # replaced, not duplicated
+    assert len(c) == 10
 
 
 def test_limit_tracks_clip_size_not_640_floor():
@@ -23,9 +28,28 @@ def test_limit_tracks_clip_size_not_640_floor():
     assert c._limit <= 8
 
 
-def test_same_version_entries_kept_up_to_clip():
+def test_whole_clip_is_retained():
     c = FrameEncodeCache()
     c.set_frame_count(5)
     for i in range(5):
-        c.store(i, 7, bytes([i]))
-    assert all(c.get(i, 7) == bytes([i]) for i in range(5))
+        c.store(i, bytes([i]))
+    assert all(c.get(i) == bytes([i]) for i in range(5))
+
+
+def test_store_beyond_the_limit_evicts_the_oldest_entry():
+    c = FrameEncodeCache()
+    c.set_frame_count(2)            # limit = 4
+    for i in range(5):
+        c.store(i, bytes([i]))
+    assert len(c) == 4
+    assert c.get(0) is None         # oldest evicted
+    assert c.get(4) == bytes([4])
+
+
+def test_clear_drops_everything():
+    c = FrameEncodeCache()
+    c.set_frame_count(3)
+    c.store(0, b"x")
+    c.clear()
+    assert len(c) == 0
+    assert c.get(0) is None

@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 from thermalright_lcd_control.device_controller.led.led_models import (
-    LEDMode, LedDeviceSettings, LedZoneSettings,
+    LedDeviceSettings,
+    LEDMode,
+    LedZoneSettings,
 )
 
 

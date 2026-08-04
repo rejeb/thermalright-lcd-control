@@ -4,7 +4,6 @@ import unittest
 from unittest import mock
 
 from thermalright_lcd_control.device_controller.display import vips_utils as vu
-
 from thermalright_lcd_control.device_controller.display.event_bus import EventBus, Topic
 from thermalright_lcd_control.device_controller.display.render_engine import RenderEngine
 
@@ -39,29 +38,18 @@ def _fake_generator(version=7, bg="cur.mp4"):
 
 
 class _FakeSink:
+    """Minimal sink: the render path only calls send(frame_idx).
+
+    Composition and encoding happen in the engine's background encode pass via
+    encode_and_cache_frame(); this sink deliberately lacks that method so the
+    pass returns immediately and the tests stay on the render path.
+    """
+
     def __init__(self):
         self.calls = []
 
-    def send_image(self, img, frame_idx, overlay_version):
-        self.calls.append((frame_idx, overlay_version))
-
-
-class _CachingSink:
-    """Sink exposing ``resend`` (the GenericDisplayDevice contract)."""
-
-    def __init__(self, cached):
-        self._cached = set(cached)
-        self.resent = []
-        self.sent = []
-
-    def resend(self, frame_idx, overlay_version):
-        if (frame_idx, overlay_version) in self._cached:
-            self.resent.append((frame_idx, overlay_version))
-            return True
-        return False
-
-    def send_image(self, img, frame_idx, overlay_version):
-        self.sent.append((frame_idx, overlay_version))
+    def send(self, frame_idx):
+        self.calls.append(frame_idx)
 
 
 def _engine(sink=None, gen=None):
@@ -77,6 +65,10 @@ def _engine(sink=None, gen=None):
     eng._reload_id = "dev1"
     eng._event_bus = None
     eng._media_active = True
+    # Background-encode state, normally set in __init__ (bypassed here via
+    # __new__). -1 means "nothing encoded yet", so the first tick triggers a pass.
+    eng._last_encoded_overlay_version = -1
+    eng._encode_lock = threading.Lock()
     # By default a reload resolves to a DIFFERENT background → full rebuild path.
     eng._build_config = mock.MagicMock(return_value=_mk_cfg(bg="new.mp4"))
     return eng
@@ -119,24 +111,47 @@ class TestRenderEngine(unittest.TestCase):
         sink = _FakeSink()
         eng = _engine(sink=sink)
         eng._tick()
-        self.assertEqual(sink.calls, [(0, 7)])  # (frame_idx, overlay_version)
+        self.assertEqual(sink.calls, [0])  # send(frame_idx)
 
-    def test_tick_skips_compose_on_cache_hit(self):
+    def test_tick_never_composes_on_the_render_path(self):
+        # CPU-1: the tick must only advance timing and hand the frame index to
+        # the sink. Composition happens in the background encode pass.
         gen = _fake_generator(version=7)
-        sink = _CachingSink(cached={(0, 7)})
+        sink = _FakeSink()
         eng = _engine(sink=sink, gen=gen)
         eng._tick()
-        gen.compose_device_frame.assert_not_called()   # CPU-1: no recomposite
-        self.assertEqual(sink.resent, [(0, 7)])
-        self.assertEqual(sink.sent, [])
+        gen.compose_device_frame.assert_not_called()
+        self.assertEqual(sink.calls, [0])
 
-    def test_tick_composes_on_cache_miss(self):
+    def test_tick_triggers_encode_once_per_overlay_version(self):
         gen = _fake_generator(version=7)
-        sink = _CachingSink(cached=set())
+        sink = _FakeSink()
         eng = _engine(sink=sink, gen=gen)
-        eng._tick()
-        gen.compose_device_frame.assert_called_once()
-        self.assertEqual(sink.sent, [(0, 7)])
+
+        # Run the encode pass synchronously: the real code spawns a daemon
+        # thread, and asserting against a thread that may not have been
+        # scheduled yet would make this test flaky.
+        spawned = []
+
+        class _SyncThread:
+            def __init__(self, target=None, args=(), **kw):
+                self._target, self._args = target, args
+
+            def start(self):
+                spawned.append(self._args)
+                self._target(*self._args)
+
+        with mock.patch.object(eng, "_encode_all_frames") as encode, \
+                mock.patch("thermalright_lcd_control.device_controller.display."
+                           "render_engine.threading.Thread", _SyncThread):
+            eng._tick()
+            eng._tick()                      # same version → no second trigger
+            self.assertEqual(encode.call_count, 1)
+
+            gen.sync_overlay.return_value = 8   # metrics changed
+            eng._tick()
+            self.assertEqual(encode.call_count, 2)
+            self.assertEqual([a[1] for a in spawned], [7, 8])
 
     def test_tick_without_sink_only_reads_base(self):
         gen = _fake_generator()

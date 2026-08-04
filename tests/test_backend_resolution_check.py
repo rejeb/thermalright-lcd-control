@@ -64,6 +64,7 @@ class TestRotationMediaDirs(unittest.TestCase):
     def test_dirs_swap_on_rotation(self):
         import tempfile
         from pathlib import Path
+
         from thermalright_lcd_control.gui.backend.app_backend import AppBackend
         with tempfile.TemporaryDirectory() as tmp:
             for d in ("320240", "240320"):

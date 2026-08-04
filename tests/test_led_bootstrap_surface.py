@@ -2,9 +2,9 @@
 # Copyright © 2025 Rejeb Ben Rejeb
 from unittest import mock
 
-from thermalright_lcd_control.gui.shared.bootstrap import append_led_devices
 from thermalright_lcd_control.device_controller.led import detect as led_detect
 from thermalright_lcd_control.device_controller.led.styles import LedStyle
+from thermalright_lcd_control.gui.shared.bootstrap import append_led_devices
 
 
 def test_no_led_hardware_appends_nothing():

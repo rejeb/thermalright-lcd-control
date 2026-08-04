@@ -1,15 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright © 2025 Rejeb Ben Rejeb
 import os
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QApplication
-from thermalright_lcd_control.gui.native.led.layout_preview import LayoutPreview
-from thermalright_lcd_control.device_controller.led.styles import STYLES, LedStyle
+
 from thermalright_lcd_control.device_controller.led.led_models import (
-    LedDeviceSettings, LEDMode,
+    LedDeviceSettings,
+    LEDMode,
 )
+from thermalright_lcd_control.device_controller.led.styles import STYLES, LedStyle
+from thermalright_lcd_control.gui.native.led.layout_preview import LayoutPreview
 
 
 @pytest.fixture(scope="module")
