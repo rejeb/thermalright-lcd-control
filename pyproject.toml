@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "thermalright-lcd-control"
-version = "2.1.0"
+version = "2.1.1"
 description = "Thermalright LCD Control"
 authors = [{ name = "REJEB BEN REJEB", email = "benrejebrejeb@gmail.com" }]
 readme = "README.md"
