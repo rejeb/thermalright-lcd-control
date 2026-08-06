@@ -21,7 +21,9 @@ build-tarball:
 # Routine check. Requires a built tarball. The equivalence test is the one thing
 # OBS cannot do for us: it proves `install.sh` and the package produce the same
 # on-disk layout. ~8 min.
+# Needs neither a container nor a built tarball, so it runs first: seconds.
 test-packaging:
+	./tests/packaging/test-user-seeding.sh
 	./tests/packaging/test-layout-equivalence.sh
 	./tests/packaging/test-migration.sh
 

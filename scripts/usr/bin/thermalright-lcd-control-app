@@ -7,7 +7,9 @@
 # gets their own writable configuration under ~/.config on first launch.
 # This script is NEVER run as root.
 
-APP_ROOT="/opt/thermalright-lcd-control"
+# TRLCD_APP_ROOT exists so the packaging tests can drive this script against a
+# stand-in tree; installs always use the default.
+APP_ROOT="${TRLCD_APP_ROOT:-/opt/thermalright-lcd-control}"
 CONFIG_DIR="$HOME/.config/thermalright-lcd-control"
 
 mkdir -p "$CONFIG_DIR"
@@ -27,8 +29,16 @@ fi
 if [ ! -d "$CONFIG_DIR/config" ]; then
     [ -d "$APP_ROOT/resources/config" ] && cp -r "$APP_ROOT/resources/config" "$CONFIG_DIR/"
 fi
-if [ ! -d "$CONFIG_DIR/themes" ]; then
-    [ -d "$APP_ROOT/resources/themes" ] && cp -R "$APP_ROOT/resources/themes" "$CONFIG_DIR/"
+# Themes are topped up per FILE, never gated on themes/ merely existing: that
+# gate silently skipped the copy for anyone whose themes/ was present but empty
+# of bundled assets — most visibly after install.sh's layout wipe, which keeps
+# themes/user_backgrounds and so leaves the directory behind. Per-file also
+# means a version shipping new assets delivers them to existing users.
+# cp -n never clobbers, so user edits and saved presets always win; the one
+# trade-off is that a bundled asset the user deleted is restored here.
+if [ -d "$APP_ROOT/resources/themes" ]; then
+    mkdir -p "$CONFIG_DIR/themes"
+    cp -Rn "$APP_ROOT/resources/themes/." "$CONFIG_DIR/themes/" 2>/dev/null
 fi
 # Themes media/presets must live under a per-resolution folder, e.g.
 # themes/backgrounds/320240/. An outdated tree still renders wrongly, but the

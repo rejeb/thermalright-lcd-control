@@ -43,6 +43,9 @@ jobs:
       - name: Assemble tarball
         run: ./packaging/build-tarball.sh
 
+      - name: Per-user seeding test
+        run: ./tests/packaging/test-user-seeding.sh
+
       - name: Verify tarball/package equivalence
         run: ./tests/packaging/test-layout-equivalence.sh
 
