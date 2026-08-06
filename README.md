@@ -4,7 +4,7 @@ A Linux application for controlling Thermalright LCD displays with an intuitive 
 
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Linux-lightgrey.svg)
-![version](https://img.shields.io/badge/version-2.1.0-green.svg)
+![version](https://img.shields.io/badge/version-2.1.1-green.svg)
 
 ## Overview
 
@@ -216,7 +216,7 @@ base image ever conflicts with a layered dependency, remove the package with
 
 2. **Download** the `.tar.gz` package:
    ```bash
-   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/2.1.0/thermalright-lcd-control-2.1.0.tar.gz -P /tmp/
+   wget https://github.com/rejeb/thermalright-lcd-control/releases/download/2.1.1/thermalright-lcd-control-2.1.1.tar.gz -P /tmp/
    ```
 
 3. **Untar** the archive file:
@@ -224,12 +224,12 @@ base image ever conflicts with a layered dependency, remove the package with
    cd /tmp
    ```
    ```bash
-   tar -xvf thermalright-lcd-control-2.1.0.tar.gz
+   tar -xvf thermalright-lcd-control-2.1.1.tar.gz
    ```
 
 4. **Install** application:
    ```bash
-    cd thermalright-lcd-control-2.1.0
+    cd thermalright-lcd-control-2.1.1
    ```
    ```bash
     sudo bash install.sh
